@@ -363,66 +363,68 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert to PDF using reportlab
+        # Convert Word to PDF using docx2pdf (proper conversion)
         pdf_success = False
         try:
-            # Read the filled Word document and extract content properly
-            doc = Document(str(filled_docx_file))
-            
-            # Create PDF with proper formatting
-            pdf_doc = SimpleDocTemplate(str(pdf_file), pagesize=letter, 
-                                      rightMargin=72, leftMargin=72, 
-                                      topMargin=72, bottomMargin=18)
-            styles = getSampleStyleSheet()
-            story = []
-            
-            # Extract and format content from Word document
-            for paragraph in doc.paragraphs:
-                if paragraph.text.strip():
-                    # Determine paragraph style based on formatting
-                    if paragraph.style.name.startswith('Heading'):
-                        style = styles['Heading1']
-                    else:
-                        style = styles['Normal']
+            # Try to use docx2pdf for proper Word to PDF conversion
+            try:
+                from docx2pdf import convert
+                convert(str(filled_docx_file), str(pdf_file))
+                pdf_success = True
+                print(f"Converted Word to PDF successfully: {pdf_file}")
+            except ImportError:
+                print("docx2pdf not available, trying alternative method...")
+                # Alternative: Use LibreOffice command line (if available)
+                import subprocess
+                try:
+                    # Try LibreOffice conversion
+                    subprocess.run([
+                        'libreoffice', '--headless', '--convert-to', 'pdf', 
+                        '--outdir', str(outputs_dir), str(filled_docx_file)
+                    ], check=True, capture_output=True)
+                    pdf_success = True
+                    print(f"Converted Word to PDF using LibreOffice: {pdf_file}")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    print("LibreOffice not available, using fallback method...")
+                    # Fallback: Create a simple PDF that explains the situation
+                    c = canvas.Canvas(str(pdf_file), pagesize=letter)
+                    width, height = letter
                     
-                    # Create paragraph with proper formatting
-                    para = Paragraph(paragraph.text.strip(), style)
-                    story.append(para)
-                    story.append(Spacer(1, 6))
-            
-            # Extract tables from Word document
-            for table in doc.tables:
-                table_data = []
-                for row in table.rows:
-                    row_data = []
-                    for cell in row.cells:
-                        cell_text = cell.text.strip() if cell.text else ""
-                        row_data.append(cell_text)
-                    table_data.append(row_data)
-                
-                if table_data:
-                    # Create PDF table
-                    pdf_table = Table(table_data)
-                    pdf_table.setStyle(TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                        ('FONTSIZE', (0, 0), (-1, 0), 10),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                    ]))
-                    story.append(pdf_table)
-                    story.append(Spacer(1, 12))
-            
-            # Build PDF
-            pdf_doc.build(story)
-            pdf_success = True
-            print(f"Created PDF from Word template successfully: {pdf_file}")
+                    c.setFont("Helvetica-Bold", 16)
+                    c.drawString(50, height - 50, f"Document: {template_info['name']}")
+                    
+                    c.setFont("Helvetica", 12)
+                    y_position = height - 100
+                    
+                    content_lines = [
+                        f"Vessel IMO: {vessel_imo}",
+                        f"Document ID: {document_id}",
+                        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                        "",
+                        "IMPORTANT:",
+                        "Your Word template has been filled with vessel data",
+                        "and is available for download.",
+                        "",
+                        "The Word document (.docx) contains your exact template",
+                        "with all formatting, tables, and design preserved.",
+                        "",
+                        "For the best results, please download the .docx file",
+                        "which contains the complete formatted document.",
+                        "",
+                        "PDF conversion requires additional tools to preserve",
+                        "the exact Word template formatting."
+                    ]
+                    
+                    for line in content_lines:
+                        c.drawString(50, y_position, line)
+                        y_position -= 20
+                    
+                    c.save()
+                    pdf_success = True
+                    print(f"Created fallback PDF: {pdf_file}")
             
         except Exception as e:
-            print(f"PDF creation from Word document failed: {e}")
+            print(f"PDF conversion failed: {e}")
             pdf_success = False
         
         # Return success response
