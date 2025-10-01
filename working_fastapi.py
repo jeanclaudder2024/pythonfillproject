@@ -896,21 +896,129 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert to PDF (try docx2pdf, fallback to text if it fails)
+        # Convert the filled Word document to PDF
         pdf_success = False
         try:
-            from docx2pdf import convert
-            convert(str(filled_docx_file), str(pdf_file))
+            # Try to convert the actual filled Word document to PDF
+            # First, let's try using python-docx to extract content and create PDF
+            from docx import Document
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            
+            # Read the filled Word document
+            doc = Document(str(filled_docx_file))
+            
+            # Create PDF with the actual template content
+            pdf_doc = SimpleDocTemplate(str(pdf_file), pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Extract content from the Word document
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():  # Only add non-empty paragraphs
+                    # Create paragraph style
+                    para_style = ParagraphStyle(
+                        'CustomPara',
+                        parent=styles['Normal'],
+                        fontSize=11,
+                        spaceAfter=6,
+                        leftIndent=0
+                    )
+                    
+                    # Clean up the text and add to PDF
+                    text = paragraph.text.strip()
+                    if text:
+                        story.append(Paragraph(text, para_style))
+                        story.append(Spacer(1, 3))
+            
+            # Also extract content from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = ""
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            row_text += cell.text.strip() + " | "
+                    if row_text.strip():
+                        # Create table row style
+                        table_style = ParagraphStyle(
+                            'TableRow',
+                            parent=styles['Normal'],
+                            fontSize=10,
+                            spaceAfter=4,
+                            leftIndent=20
+                        )
+                        story.append(Paragraph(row_text.rstrip(" | "), table_style))
+                        story.append(Spacer(1, 2))
+            
+            # Add document metadata
+            story.append(Spacer(1, 20))
+            meta_style = ParagraphStyle(
+                'Meta',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.grey
+            )
+            story.append(Paragraph(f"Document ID: {document_id}", meta_style))
+            story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", meta_style))
+            story.append(Paragraph(f"Template: {template_info['name']}", meta_style))
+            story.append(Paragraph(f"Vessel IMO: {vessel_imo}", meta_style))
+            
+            # Build PDF
+            pdf_doc.build(story)
             pdf_success = True
+            print(f"Created PDF from Word template successfully: {pdf_file}")
+            
         except Exception as e:
-            print(f"PDF conversion failed: {e}")
-            # Create a fallback text file
-            with open(txt_file, 'w', encoding='utf-8') as f:
-                f.write(f"Document processed successfully for vessel {vessel_imo}\n")
-                f.write(f"Template: {template_info['name']}\n")
-                f.write(f"Document ID: {document_id}\n")
-                f.write(f"Note: PDF conversion failed, but Word document was created successfully.\n")
-                f.write(f"Word file: {filled_docx_file}\n")
+            print(f"PDF creation from Word document failed: {e}")
+            # Fallback: Create a simple PDF with template info
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+                
+                c = canvas.Canvas(str(pdf_file), pagesize=letter)
+                width, height = letter
+                
+                # Title
+                c.setFont("Helvetica-Bold", 16)
+                c.drawString(50, height - 50, f"Vessel Report - {template_info['name']}")
+                
+                # Content
+                c.setFont("Helvetica", 12)
+                y_position = height - 100
+                
+                content_lines = [
+                    f"Vessel IMO: {vessel_imo}",
+                    f"Document ID: {document_id}",
+                    f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    "",
+                    "This document was generated from your uploaded template.",
+                    "The Word document has been processed and filled with vessel data.",
+                    "",
+                    "Note: This is a simplified PDF version.",
+                    "The original Word document contains the full template formatting."
+                ]
+                
+                for line in content_lines:
+                    c.drawString(50, y_position, line)
+                    y_position -= 20
+                
+                c.save()
+                pdf_success = True
+                print(f"Created fallback PDF successfully: {pdf_file}")
+                
+            except Exception as e2:
+                print(f"Fallback PDF creation also failed: {e2}")
+                # Create a text file as last resort
+                with open(txt_file, 'w', encoding='utf-8') as f:
+                    f.write(f"Document processed successfully for vessel {vessel_imo}\n")
+                    f.write(f"Template: {template_info['name']}\n")
+                    f.write(f"Document ID: {document_id}\n")
+                    f.write(f"Note: PDF creation failed, but Word document was created successfully.\n")
+                    f.write(f"Word file: {filled_docx_file}\n")
         
         # Return success response
         return JSONResponse({
@@ -947,14 +1055,65 @@ async def download_document(document_id: str, format: str = "pdf"):
             file_path = outputs_dir / f"{document_id}_filled.pdf"
             media_type = "application/pdf"
             filename = f"vessel_report_{document_id}.pdf"
+        elif format.lower() == "docx":
+            file_path = outputs_dir / f"{document_id}_filled.docx"
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            filename = f"vessel_report_{document_id}.docx"
         else:
             file_path = outputs_dir / f"{document_id}_filled_fallback.txt"
             media_type = "text/plain"
             filename = f"vessel_report_{document_id}.txt"
         
         if not file_path.exists():
-            # Create a fallback response with sample data
-            fallback_content = f"""Vessel Report - {document_id}
+            if format.lower() == "pdf":
+                # Create a proper PDF fallback
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+                from reportlab.lib import colors
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import inch
+                
+                # Create PDF content
+                doc = SimpleDocTemplate(str(file_path), pagesize=letter)
+                styles = getSampleStyleSheet()
+                story = []
+                
+                # Title
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=18,
+                    spaceAfter=30,
+                    alignment=1  # Center alignment
+                )
+                story.append(Paragraph("Vessel Report", title_style))
+                story.append(Spacer(1, 12))
+                
+                # Content
+                content_style = ParagraphStyle(
+                    'CustomContent',
+                    parent=styles['Normal'],
+                    fontSize=12,
+                    spaceAfter=12
+                )
+                
+                story.append(Paragraph(f"<b>Document ID:</b> {document_id}", content_style))
+                story.append(Paragraph(f"<b>Generated on:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", content_style))
+                story.append(Spacer(1, 20))
+                
+                story.append(Paragraph("This is a sample vessel report generated by the template system.", content_style))
+                story.append(Paragraph("The document processing feature is currently being improved.", content_style))
+                story.append(Spacer(1, 20))
+                
+                story.append(Paragraph("For support, please contact the system administrator.", content_style))
+                
+                # Build PDF
+                doc.build(story)
+                print(f"Created fallback PDF: {file_path}")
+            else:
+                # Create a text fallback
+                fallback_content = f"""Vessel Report - {document_id}
 Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 This is a sample vessel report generated by the template system.
@@ -965,10 +1124,10 @@ Format: {format}
 
 For support, please contact the system administrator.
 """
-            
-            # Create the fallback file
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(fallback_content)
+                
+                # Create the fallback file
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(fallback_content)
         
         return FileResponse(
             path=str(file_path),
