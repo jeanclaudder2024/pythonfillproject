@@ -1,0 +1,183 @@
+{% extends "base.html" %} {% block title %}Upload Document - Document Auto-Fill System{% endblock %} {% block content %}
+<div class="text-center mb-4">
+    <h1 class="display-5 fw-bold text-primary mb-3">
+        <i class="fas fa-magic me-3"></i> Document Auto-Fill System
+    </h1>
+    <p class="lead text-muted">
+        Upload your Word document with placeholders and let the system fill them with random data
+    </p>
+</div>
+
+<form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" id="uploadForm">
+    <div class="mb-4">
+        <label for="vessel_imo" class="form-label fw-bold">
+            <i class="fas fa-ship me-2"></i>
+            Vessel IMO Number
+        </label>
+        <input type="text" class="form-control" id="vessel_imo" name="vessel_imo" placeholder="Enter vessel IMO number (e.g., 1234567)" required>
+        <div class="form-text">
+            <i class="fas fa-info-circle me-1"></i> The system will use this IMO number in the generated data
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <label for="file" class="form-label fw-bold">
+            <i class="fas fa-file-word me-2"></i>
+            Word Document (.docx)
+        </label>
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-content">
+                <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                <h5>Drag and drop your Word document here</h5>
+                <p class="text-muted mb-3">or click to browse files</p>
+                <input type="file" class="form-control" id="file" name="file" accept=".docx" required style="display: none;">
+                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file').click()">
+                    <i class="fas fa-folder-open me-2"></i>
+                    Choose File
+                </button>
+            </div>
+            <div class="file-info mt-3" id="fileInfo" style="display: none;">
+                <div class="alert alert-info">
+                    <i class="fas fa-file-word me-2"></i>
+                    <span id="fileName"></span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="clearFile()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <h6><i class="fas fa-lightbulb me-2"></i>How to use placeholders:</h6>
+        <ul class="mb-0">
+            <li>Use double curly braces: <code>{{placeholder_name}}</code></li>
+            <li>Examples: <code>{{vessel_name}}</code>, <code>{{vessel_type}}</code>, <code>{{captain}}</code></li>
+            <li>The system will automatically detect and fill these placeholders</li>
+        </ul>
+    </div>
+
+    <div class="d-grid">
+        <button type="submit" class="btn btn-custom btn-lg" id="submitBtn">
+            <i class="fas fa-magic me-2"></i>
+            Process Document
+        </button>
+    </div>
+</form>
+
+<div class="mt-5 text-center">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="feature-box p-3">
+                <i class="fas fa-search fa-2x text-primary mb-2"></i>
+                <h6>Smart Detection</h6>
+                <small class="text-muted">Automatically finds placeholders in your document</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-box p-3">
+                <i class="fas fa-random fa-2x text-primary mb-2"></i>
+                <h6>Random Data</h6>
+                <small class="text-muted">Generates realistic random data for all placeholders</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-box p-3">
+                <i class="fas fa-file-pdf fa-2x text-primary mb-2"></i>
+                <h6>Multiple Formats</h6>
+                <small class="text-muted">Get both Word and PDF versions</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('file');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+
+        // File input change event
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileName.textContent = file.name;
+                fileInfo.style.display = 'block';
+                uploadArea.classList.add('file-selected');
+            }
+        });
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.docx')) {
+                    fileInput.files = files;
+                    fileName.textContent = file.name;
+                    fileInfo.style.display = 'block';
+                    uploadArea.classList.add('file-selected');
+                } else {
+                    alert('Please select a .docx file');
+                }
+            }
+        });
+
+        // Form submission
+        uploadForm.addEventListener('submit', function(e) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            submitBtn.disabled = true;
+        });
+    });
+
+    function clearFile() {
+        document.getElementById('file').value = '';
+        document.getElementById('fileInfo').style.display = 'none';
+        document.getElementById('uploadArea').classList.remove('file-selected');
+    }
+</script>
+
+<style>
+    .upload-area.drag-over {
+        border-color: #764ba2;
+        background: rgba(118, 75, 162, 0.2);
+    }
+    
+    .upload-area.file-selected {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.1);
+    }
+    
+    .feature-box {
+        transition: transform 0.3s ease;
+    }
+    
+    .feature-box:hover {
+        transform: translateY(-5px);
+    }
+    
+    code {
+        background: rgba(102, 126, 234, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #667eea;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}

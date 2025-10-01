@@ -1,0 +1,163 @@
+{% extends "base.html" %} {% block title %}Results - Document Auto-Fill System{% endblock %} {% block content %}
+<div class="text-center mb-4">
+    <h1 class="display-5 fw-bold text-success mb-3">
+        <i class="fas fa-check-circle me-3"></i> Document Processing Complete!
+    </h1>
+    <p class="lead text-muted">
+        Your document has been successfully processed and filled with data
+    </p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-file-word fa-4x text-primary"></i>
+                </div>
+                <h5 class="card-title">Word Document</h5>
+                <p class="card-text text-muted">
+                    Editable Word document with all placeholders filled
+                </p>
+                <a href="{{ url_for('download_file', file_id=file_id, file_type='word') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-download me-2"></i> Download Word
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <div class="mb-3">
+                    {% if pdf_available %}
+                        <i class="fas fa-file-pdf fa-4x text-danger"></i>
+                    {% else %}
+                        <i class="fas fa-file-pdf fa-4x text-muted"></i>
+                    {% endif %}
+                </div>
+                <h5 class="card-title">PDF Document</h5>
+                {% if pdf_available %}
+                    <p class="card-text text-muted">
+                        Print-ready PDF version of your filled document
+                    </p>
+                    <a href="{{ url_for('download_file', file_id=file_id, file_type='pdf') }}" class="btn btn-danger btn-lg">
+                        <i class="fas fa-download me-2"></i> Download PDF
+                    </a>
+                {% else %}
+                    <p class="card-text text-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        PDF conversion failed. Please use the Word document.
+                    </p>
+                    {% if fallback_available %}
+                        <a href="{{ url_for('download_file', file_id=file_id, file_type='fallback') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-info-circle me-2"></i> Download Error Info
+                        </a>
+                    {% endif %}
+                    <button class="btn btn-secondary btn-lg" disabled>
+                        <i class="fas fa-times me-2"></i> PDF Not Available
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mb-4">
+    {% if pdf_available %}
+        <a href="{{ url_for('download_both', file_id=file_id) }}" class="btn btn-custom btn-lg me-3">
+            <i class="fas fa-archive me-2"></i> Download Both (ZIP)
+        </a>
+    {% else %}
+        <a href="{{ url_for('download_both', file_id=file_id) }}" class="btn btn-custom btn-lg me-3">
+            <i class="fas fa-archive me-2"></i> Download Available Files (ZIP)
+        </a>
+    {% endif %}
+
+    <a href="{{ url_for('index') }}" class="btn btn-outline-primary btn-lg">
+        <i class="fas fa-plus me-2"></i> Process Another Document
+    </a>
+</div>
+
+<div class="alert alert-success">
+    <h6><i class="fas fa-info-circle me-2"></i>What happened to your document:</h6>
+    <ul class="mb-0">
+        <li><strong>Placeholder Detection:</strong> The system found and identified all placeholders in your document</li>
+        <li><strong>Data Search:</strong> Real vessel information was searched online using the provided IMO number</li>
+        <li><strong>Smart Filling:</strong> Placeholders were replaced with real data when available, or realistic test data as fallback</li>
+        <li><strong>Format Preservation:</strong> Your original document structure and formatting were maintained</li>
+        <li><strong>Multiple Outputs:</strong> Both Word and PDF versions were generated for your convenience</li>
+    </ul>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 text-center">
+        <div class="feature-stat">
+            <i class="fas fa-magic fa-2x text-primary mb-2"></i>
+            <h4 class="text-primary">AI Powered</h4>
+            <p class="text-muted">Intelligent placeholder detection and data filling</p>
+        </div>
+    </div>
+    <div class="col-md-4 text-center">
+        <div class="feature-stat">
+            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+            <h4 class="text-success">Secure</h4>
+            <p class="text-muted">Your documents are processed securely and not stored permanently</p>
+        </div>
+    </div>
+    <div class="col-md-4 text-center">
+        <div class="feature-stat">
+            <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+            <h4 class="text-warning">Fast</h4>
+            <p class="text-muted">Quick processing with real-time data fetching</p>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add some animation to the cards
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 200);
+        });
+    });
+</script>
+
+<style>
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .feature-stat {
+        padding: 20px;
+        transition: transform 0.3s ease;
+    }
+    
+    .feature-stat:hover {
+        transform: translateY(-5px);
+    }
+    
+    .btn {
+        transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}

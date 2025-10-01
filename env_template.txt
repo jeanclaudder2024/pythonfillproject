@@ -1,0 +1,17 @@
+# Supabase Configuration
+# Copy this file to .env and fill in your actual values
+
+# Your Supabase project URL
+SUPABASE_URL=https://your-project-id.supabase.co
+
+# Your Supabase anon/public key
+SUPABASE_ANON_KEY=your-anon-key-here
+
+# Your Supabase service role key (for admin operations)
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# Flask Configuration
+FLASK_SECRET_KEY=your-secret-key-here
+
+# Optional: OpenAI API Key (if you want to use AI features)
+OPENAI_API_KEY=your-openai-api-key-here
