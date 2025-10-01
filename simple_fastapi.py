@@ -363,65 +363,84 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert Word to PDF using docx2pdf (proper conversion)
+        # Convert Word to PDF DIRECTLY (preserving template design)
         pdf_success = False
         try:
-            # Try to use docx2pdf for proper Word to PDF conversion
+            # Method 1: Try docx2pdf (Windows/Mac - preserves design)
             try:
                 from docx2pdf import convert
                 convert(str(filled_docx_file), str(pdf_file))
                 pdf_success = True
-                print(f"Converted Word to PDF successfully: {pdf_file}")
+                print(f"✅ Converted Word to PDF with design preserved: {pdf_file}")
             except ImportError:
-                print("docx2pdf not available, trying alternative method...")
-                # Alternative: Use LibreOffice command line (if available)
+                print("docx2pdf not available, trying LibreOffice...")
+                
+                # Method 2: Try LibreOffice (Linux - preserves design)
                 import subprocess
                 try:
-                    # Try LibreOffice conversion
-                    subprocess.run([
+                    # LibreOffice command to convert Word to PDF
+                    result = subprocess.run([
                         'libreoffice', '--headless', '--convert-to', 'pdf', 
                         '--outdir', str(outputs_dir), str(filled_docx_file)
-                    ], check=True, capture_output=True)
-                    pdf_success = True
-                    print(f"Converted Word to PDF using LibreOffice: {pdf_file}")
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    print("LibreOffice not available, using fallback method...")
-                    # Fallback: Create a simple PDF that explains the situation
-                    c = canvas.Canvas(str(pdf_file), pagesize=letter)
-                    width, height = letter
+                    ], check=True, capture_output=True, text=True)
                     
-                    c.setFont("Helvetica-Bold", 16)
-                    c.drawString(50, height - 50, f"Document: {template_info['name']}")
+                    # LibreOffice creates PDF with same name as DOCX
+                    expected_pdf = outputs_dir / f"{document_id}_filled.pdf"
+                    if expected_pdf.exists():
+                        pdf_success = True
+                        print(f"✅ Converted Word to PDF using LibreOffice: {expected_pdf}")
+                    else:
+                        raise Exception("LibreOffice conversion failed - no PDF created")
+                        
+                except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                    print(f"LibreOffice failed: {e}")
                     
-                    c.setFont("Helvetica", 12)
-                    y_position = height - 100
-                    
-                    content_lines = [
-                        f"Vessel IMO: {vessel_imo}",
-                        f"Document ID: {document_id}",
-                        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                        "",
-                        "IMPORTANT:",
-                        "Your Word template has been filled with vessel data",
-                        "and is available for download.",
-                        "",
-                        "The Word document (.docx) contains your exact template",
-                        "with all formatting, tables, and design preserved.",
-                        "",
-                        "For the best results, please download the .docx file",
-                        "which contains the complete formatted document.",
-                        "",
-                        "PDF conversion requires additional tools to preserve",
-                        "the exact Word template formatting."
-                    ]
-                    
-                    for line in content_lines:
-                        c.drawString(50, y_position, line)
-                        y_position -= 20
-                    
-                    c.save()
-                    pdf_success = True
-                    print(f"Created fallback PDF: {pdf_file}")
+                    # Method 3: Try pandoc (if available)
+                    try:
+                        result = subprocess.run([
+                            'pandoc', str(filled_docx_file), '-o', str(pdf_file)
+                        ], check=True, capture_output=True, text=True)
+                        pdf_success = True
+                        print(f"✅ Converted Word to PDF using pandoc: {pdf_file}")
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        print("pandoc not available, using final fallback...")
+                        
+                        # Method 4: Final fallback - create informational PDF
+                        c = canvas.Canvas(str(pdf_file), pagesize=letter)
+                        width, height = letter
+                        
+                        c.setFont("Helvetica-Bold", 18)
+                        c.drawString(50, height - 50, f"Document: {template_info['name']}")
+                        
+                        c.setFont("Helvetica", 12)
+                        y_position = height - 100
+                        
+                        content_lines = [
+                            f"Vessel IMO: {vessel_imo}",
+                            f"Document ID: {document_id}",
+                            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                            "",
+                            "✅ SUCCESS: Your Word template has been filled with vessel data!",
+                            "",
+                            "📄 The Word document (.docx) contains your EXACT template",
+                            "   with all formatting, tables, and design preserved.",
+                            "",
+                            "⚠️  PDF conversion tools not available on this server.",
+                            "   Please download the .docx file for the complete document.",
+                            "",
+                            "🔧 To enable PDF conversion, install:",
+                            "   - docx2pdf (Windows/Mac)",
+                            "   - LibreOffice (Linux)",
+                            "   - pandoc (cross-platform)"
+                        ]
+                        
+                        for line in content_lines:
+                            c.drawString(50, y_position, line)
+                            y_position -= 20
+                        
+                        c.save()
+                        pdf_success = True
+                        print(f"Created informational PDF: {pdf_file}")
             
         except Exception as e:
             print(f"PDF conversion failed: {e}")
