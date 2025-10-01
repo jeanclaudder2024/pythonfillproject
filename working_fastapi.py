@@ -896,64 +896,117 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # For now, we'll focus on providing the Word document
-        # PDF conversion with proper formatting is complex and requires additional libraries
-        # The Word document contains the exact template with filled data
+        # Convert to PDF using reportlab with proper Word content extraction
         pdf_success = False
-        
-        # Create a simple PDF that explains the situation
         try:
+            # Read the filled Word document and extract content properly
+            from docx import Document
             from reportlab.pdfgen import canvas
             from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
             
-            c = canvas.Canvas(str(pdf_file), pagesize=letter)
-            width, height = letter
+            # Read the filled Word document
+            doc = Document(str(filled_docx_file))
             
-            # Title
-            c.setFont("Helvetica-Bold", 18)
-            c.drawString(50, height - 50, f"Document Generated Successfully")
+            # Create PDF with proper formatting
+            pdf_doc = SimpleDocTemplate(str(pdf_file), pagesize=letter, 
+                                      rightMargin=72, leftMargin=72, 
+                                      topMargin=72, bottomMargin=18)
+            styles = getSampleStyleSheet()
+            story = []
             
-            # Content
-            c.setFont("Helvetica", 12)
-            y_position = height - 100
+            # Extract and format content from Word document
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    # Determine paragraph style based on formatting
+                    if paragraph.style.name.startswith('Heading'):
+                        style = styles['Heading1']
+                    else:
+                        style = styles['Normal']
+                    
+                    # Create paragraph with proper formatting
+                    para = Paragraph(paragraph.text.strip(), style)
+                    story.append(para)
+                    story.append(Spacer(1, 6))
             
-            content_lines = [
-                f"Template: {template_info['name']}",
-                f"Vessel IMO: {vessel_imo}",
-                f"Document ID: {document_id}",
-                f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                "",
-                "IMPORTANT:",
-                "The Word document (.docx) contains your exact template",
-                "with all formatting, tables, and design preserved.",
-                "",
-                "The Word document has been filled with vessel data",
-                "and maintains the original template structure.",
-                "",
-                "For the best results, please download the .docx file",
-                "which contains the complete formatted document.",
-                "",
-                "This PDF is a summary - the Word document is the",
-                "actual processed template with your design."
-            ]
+            # Extract tables from Word document
+            for table in doc.tables:
+                table_data = []
+                for row in table.rows:
+                    row_data = []
+                    for cell in row.cells:
+                        cell_text = cell.text.strip() if cell.text else ""
+                        row_data.append(cell_text)
+                    table_data.append(row_data)
+                
+                if table_data:
+                    # Create PDF table
+                    pdf_table = Table(table_data)
+                    pdf_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    story.append(pdf_table)
+                    story.append(Spacer(1, 12))
             
-            for line in content_lines:
-                c.drawString(50, y_position, line)
-                y_position -= 20
-            
-            c.save()
+            # Build PDF
+            pdf_doc.build(story)
             pdf_success = True
-            print(f"Created informational PDF: {pdf_file}")
+            print(f"Created PDF from Word template successfully: {pdf_file}")
             
         except Exception as e:
-            print(f"PDF creation failed: {e}")
-            # Create a text file as last resort
-            with open(txt_file, 'w', encoding='utf-8') as f:
-                f.write(f"Document processed successfully for vessel {vessel_imo}\n")
-                f.write(f"Template: {template_info['name']}\n")
-                f.write(f"Document ID: {document_id}\n")
-                f.write(f"Note: Word document was created successfully with your template.\n")
-                f.write(f"Word file: {filled_docx_file}\n")
+            print(f"PDF creation from Word document failed: {e}")
+            # Fallback: Create a simple PDF with vessel data
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+                
+                c = canvas.Canvas(str(pdf_file), pagesize=letter)
+                width, height = letter
+                
+                # Title
+                c.setFont("Helvetica-Bold", 16)
+                c.drawString(50, height - 50, f"Vessel Report - {template_info['name']}")
+                
+                # Content
+                c.setFont("Helvetica", 12)
+                y_position = height - 100
+                
+                content_lines = [
+                    f"Vessel IMO: {vessel_imo}",
+                    f"Document ID: {document_id}",
+                    f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    "",
+                    "This document was generated from your uploaded template.",
+                    "The Word document has been processed and filled with vessel data."
+                ]
+                
+                for line in content_lines:
+                    c.drawString(50, y_position, line)
+                    y_position -= 20
+                
+                c.save()
+                pdf_success = True
+                print(f"Created fallback PDF successfully: {pdf_file}")
+                
+            except Exception as e2:
+                print(f"Fallback PDF creation also failed: {e2}")
+                # Create a text file as last resort
+                with open(txt_file, 'w', encoding='utf-8') as f:
+                    f.write(f"Document processed successfully for vessel {vessel_imo}\n")
+                    f.write(f"Template: {template_info['name']}\n")
+                    f.write(f"Document ID: {document_id}\n")
+                    f.write(f"Note: PDF creation failed, but Word document was created successfully.\n")
+                    f.write(f"Word file: {filled_docx_file}\n")
         
         # Return success response
         return JSONResponse({
