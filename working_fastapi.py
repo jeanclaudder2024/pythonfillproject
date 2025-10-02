@@ -577,14 +577,20 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert Word document to PDF preserving original design
+        # Try to convert Word document to PDF (preserving original design)
         pdf_success = False
+        pdf_conversion_method = "none"
+        
+        print(f"🔄 Starting PDF conversion for: {filled_docx_file}")
+        
         try:
-            # Method 1: Try using docx2pdf (preserves formatting, backgrounds, logos)
+            # Method 1: Try using docx2pdf (works best on Windows)
             try:
                 import platform
+                print(f"🖥️  Platform: {platform.system()}")
+                
                 if platform.system() == "Windows":
-                    # Initialize COM for Windows (if available)
+                    # Windows - try with COM initialization first
                     try:
                         import pythoncom
                         pythoncom.CoInitialize()
@@ -592,80 +598,105 @@ async def process_document(
                             from docx2pdf import convert
                             convert(str(filled_docx_file), str(pdf_file))
                             pdf_success = True
-                            print(f"✅ PDF conversion successful with docx2pdf (Windows): {pdf_file}")
+                            pdf_conversion_method = "docx2pdf-windows-com"
+                            print(f"✅ PDF conversion successful with docx2pdf (Windows+COM): {pdf_file}")
                         finally:
                             pythoncom.CoUninitialize()
                     except ImportError:
-                        # pythoncom not available, try without COM initialization
+                        # No pythoncom, try without COM
                         from docx2pdf import convert
                         convert(str(filled_docx_file), str(pdf_file))
                         pdf_success = True
-                        print(f"✅ PDF conversion successful with docx2pdf (Windows-no-COM): {pdf_file}")
+                        pdf_conversion_method = "docx2pdf-windows"
+                        print(f"✅ PDF conversion successful with docx2pdf (Windows): {pdf_file}")
                 else:
-                    # Non-Windows systems
+                    # Linux - docx2pdf might not work, but try anyway
                     from docx2pdf import convert
                     convert(str(filled_docx_file), str(pdf_file))
                     pdf_success = True
+                    pdf_conversion_method = "docx2pdf-linux"
                     print(f"✅ PDF conversion successful with docx2pdf (Linux): {pdf_file}")
+                    
             except Exception as e:
                 print(f"⚠️  docx2pdf failed: {e}")
-                pdf_success = False
                 
-            # Method 2: Try using LibreOffice (for Linux/deployment)
+            # Method 2: Try using LibreOffice (common on Linux servers)
             if not pdf_success:
                 try:
                     import subprocess
+                    print("🔄 Trying LibreOffice conversion...")
                     result = subprocess.run([
                         'libreoffice', '--headless', '--convert-to', 'pdf', 
                         '--outdir', str(outputs_dir), str(filled_docx_file)
-                    ], capture_output=True, text=True, timeout=30)
+                    ], capture_output=True, text=True, timeout=45)
                     
                     if result.returncode == 0 and pdf_file.exists():
                         pdf_success = True
+                        pdf_conversion_method = "libreoffice"
                         print(f"✅ PDF conversion successful with LibreOffice: {pdf_file}")
                     else:
-                        print(f"⚠️  LibreOffice failed: {result.stderr}")
+                        print(f"⚠️  LibreOffice failed - Return code: {result.returncode}")
+                        print(f"⚠️  LibreOffice stderr: {result.stderr}")
+                        print(f"⚠️  LibreOffice stdout: {result.stdout}")
+                except FileNotFoundError:
+                    print("⚠️  LibreOffice not found on system")
                 except Exception as e:
                     print(f"⚠️  LibreOffice conversion failed: {e}")
                     
-            # Method 3: Try using pandoc (cross-platform)
+            # Method 3: Try using pandoc (if available)
             if not pdf_success:
                 try:
                     import subprocess
+                    print("🔄 Trying pandoc conversion...")
                     result = subprocess.run([
                         'pandoc', str(filled_docx_file), '-o', str(pdf_file)
-                    ], capture_output=True, text=True, timeout=30)
+                    ], capture_output=True, text=True, timeout=45)
                     
                     if result.returncode == 0 and pdf_file.exists():
                         pdf_success = True
+                        pdf_conversion_method = "pandoc"
                         print(f"✅ PDF conversion successful with pandoc: {pdf_file}")
                     else:
-                        print(f"⚠️  Pandoc failed: {result.stderr}")
+                        print(f"⚠️  Pandoc failed - Return code: {result.returncode}")
+                        print(f"⚠️  Pandoc stderr: {result.stderr}")
+                except FileNotFoundError:
+                    print("⚠️  Pandoc not found on system")
                 except Exception as e:
                     print(f"⚠️  Pandoc conversion failed: {e}")
                     
-            # Fallback: Create informational PDF if all methods fail
+            # Method 4: Create notice PDF explaining the situation
             if not pdf_success:
+                print("ℹ️  All PDF conversion methods failed, creating informational PDF...")
                 from reportlab.pdfgen import canvas
                 from reportlab.lib.pagesizes import letter
                 
                 c = canvas.Canvas(str(pdf_file), pagesize=letter)
-                c.drawString(100, 750, "Document Processed Successfully")
+                c.drawString(100, 750, "DOCUMENT PROCESSING COMPLETE")
                 c.drawString(100, 720, f"Template: {template_info['name']}")
                 c.drawString(100, 690, f"Vessel IMO: {vessel_imo}")
                 c.drawString(100, 660, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                c.drawString(100, 600, "IMPORTANT:")
-                c.drawString(100, 570, "The Word document (.docx) contains your exact template")
-                c.drawString(100, 540, "with all formatting, tables, and design preserved.")
-                c.drawString(100, 510, "This PDF is a fallback - please download the .docx file")
-                c.drawString(100, 480, "for the complete formatted document with your design.")
+                c.drawString(100, 620, "=" * 60)
+                c.drawString(100, 580, "IMPORTANT NOTICE:")
+                c.drawString(100, 550, "Your template has been processed successfully!")
+                c.drawString(100, 520, "• All placeholders have been filled with real vessel data")
+                c.drawString(100, 490, "• Your original template design is preserved")
+                c.drawString(100, 460, "• Download the Word document (.docx) for best results")
+                c.drawString(100, 420, "The Word document contains:")
+                c.drawString(120, 390, "✓ Your exact template design and formatting")
+                c.drawString(120, 360, "✓ All backgrounds, logos, and images")
+                c.drawString(120, 330, "✓ Original tables and layout")
+                c.drawString(120, 300, "✓ Filled with real vessel data")
+                c.drawString(100, 260, "This PDF is informational only.")
+                c.drawString(100, 230, "Please download the .docx file for the complete document.")
                 c.save()
                 pdf_success = True
-                print(f"ℹ️  Created informational PDF (Word document has full formatting): {pdf_file}")
+                pdf_conversion_method = "informational"
+                print(f"ℹ️  Created informational PDF: {pdf_file}")
                 
         except Exception as e:
-            print(f"❌ All PDF conversion methods failed: {e}")
+            print(f"❌ PDF creation completely failed: {e}")
             pdf_success = False
+            pdf_conversion_method = "failed"
         
         # Return success response
         return JSONResponse({
