@@ -592,19 +592,33 @@ async def process_document(
                 try:
                     import subprocess
                     print("🔄 Trying LibreOffice conversion (best for Linux)...")
-                    result = subprocess.run([
-                        'libreoffice', '--headless', '--convert-to', 'pdf', 
-                        '--outdir', str(outputs_dir), str(filled_docx_file)
-                    ], capture_output=True, text=True, timeout=60)
                     
-                    if result.returncode == 0 and pdf_file.exists():
-                        pdf_success = True
-                        pdf_conversion_method = "libreoffice"
-                        print(f"✅ PDF conversion successful with LibreOffice: {pdf_file}")
-                    else:
-                        print(f"⚠️  LibreOffice failed - Return code: {result.returncode}")
-                        print(f"⚠️  LibreOffice stderr: {result.stderr}")
-                        print(f"⚠️  LibreOffice stdout: {result.stdout}")
+                    # Create a temporary directory for LibreOffice
+                    import tempfile
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        # Copy the file to temp directory
+                        temp_docx = os.path.join(temp_dir, "document.docx")
+                        shutil.copy2(filled_docx_file, temp_docx)
+                        
+                        # Run LibreOffice conversion
+                        result = subprocess.run([
+                            'libreoffice', '--headless', '--convert-to', 'pdf', 
+                            '--outdir', temp_dir, temp_docx
+                        ], capture_output=True, text=True, timeout=120)
+                        
+                        # Check if PDF was created
+                        temp_pdf = os.path.join(temp_dir, "document.pdf")
+                        if result.returncode == 0 and os.path.exists(temp_pdf):
+                            # Copy the PDF to our output directory
+                            shutil.copy2(temp_pdf, pdf_file)
+                            pdf_success = True
+                            pdf_conversion_method = "libreoffice"
+                            print(f"✅ PDF conversion successful with LibreOffice: {pdf_file}")
+                        else:
+                            print(f"⚠️  LibreOffice failed - Return code: {result.returncode}")
+                            print(f"⚠️  LibreOffice stderr: {result.stderr}")
+                            print(f"⚠️  LibreOffice stdout: {result.stdout}")
+                            
                 except FileNotFoundError:
                     print("⚠️  LibreOffice not found on system")
                 except Exception as e:
@@ -714,6 +728,11 @@ async def process_document(
             "download_urls": {
                 "docx": f"/download/{document_id}?format=docx",
                 "pdf": f"/download/{document_id}?format=pdf"
+            },
+            "pdf_conversion": {
+                "success": pdf_success,
+                "method": pdf_conversion_method,
+                "note": "PDF conversion preserves your exact Word template design" if pdf_success else "PDF conversion failed - download DOCX for exact template design"
             },
             "note": "The Word document (.docx) contains your exact template with all formatting preserved."
         })

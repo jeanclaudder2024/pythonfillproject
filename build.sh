@@ -7,13 +7,16 @@ echo "Installing system dependencies..."
 apt-get update
 
 # Install LibreOffice for DOCX to PDF conversion
-apt-get install -y libreoffice
+apt-get install -y libreoffice-writer-nogui libreoffice-core
 
 # Install unoconv as alternative
 apt-get install -y unoconv
 
 # Install pandoc as another alternative
 apt-get install -y pandoc
+
+# Install additional dependencies
+apt-get install -y fonts-liberation
 
 echo "System dependencies installed successfully!"
 
