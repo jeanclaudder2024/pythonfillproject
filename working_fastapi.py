@@ -584,51 +584,18 @@ async def process_document(
         print(f"🔄 Starting PDF conversion for: {filled_docx_file}")
         
         try:
-            # Method 1: Try using docx2pdf (works best on Windows)
-            try:
-                import platform
-                print(f"🖥️  Platform: {platform.system()}")
-                
-                if platform.system() == "Windows":
-                    # Windows - try with COM initialization first
-                    try:
-                        import pythoncom
-                        pythoncom.CoInitialize()
-                        try:
-                            from docx2pdf import convert
-                            convert(str(filled_docx_file), str(pdf_file))
-                            pdf_success = True
-                            pdf_conversion_method = "docx2pdf-windows-com"
-                            print(f"✅ PDF conversion successful with docx2pdf (Windows+COM): {pdf_file}")
-                        finally:
-                            pythoncom.CoUninitialize()
-                    except ImportError:
-                        # No pythoncom, try without COM
-                        from docx2pdf import convert
-                        convert(str(filled_docx_file), str(pdf_file))
-                        pdf_success = True
-                        pdf_conversion_method = "docx2pdf-windows"
-                        print(f"✅ PDF conversion successful with docx2pdf (Windows): {pdf_file}")
-                else:
-                    # Linux - docx2pdf might not work, but try anyway
-                    from docx2pdf import convert
-                    convert(str(filled_docx_file), str(pdf_file))
-                    pdf_success = True
-                    pdf_conversion_method = "docx2pdf-linux"
-                    print(f"✅ PDF conversion successful with docx2pdf (Linux): {pdf_file}")
-                    
-            except Exception as e:
-                print(f"⚠️  docx2pdf failed: {e}")
-                
-            # Method 2: Try using LibreOffice (common on Linux servers)
+            import platform
+            print(f"🖥️  Platform: {platform.system()}")
+            
+            # Method 1: Try using LibreOffice first (best for Linux/Render)
             if not pdf_success:
                 try:
                     import subprocess
-                    print("🔄 Trying LibreOffice conversion...")
+                    print("🔄 Trying LibreOffice conversion (best for Linux)...")
                     result = subprocess.run([
                         'libreoffice', '--headless', '--convert-to', 'pdf', 
                         '--outdir', str(outputs_dir), str(filled_docx_file)
-                    ], capture_output=True, text=True, timeout=45)
+                    ], capture_output=True, text=True, timeout=60)
                     
                     if result.returncode == 0 and pdf_file.exists():
                         pdf_success = True
@@ -642,6 +609,27 @@ async def process_document(
                     print("⚠️  LibreOffice not found on system")
                 except Exception as e:
                     print(f"⚠️  LibreOffice conversion failed: {e}")
+            
+            # Method 2: Try using unoconv (alternative for Linux)
+            if not pdf_success:
+                try:
+                    import subprocess
+                    print("🔄 Trying unoconv conversion...")
+                    result = subprocess.run([
+                        'unoconv', '-f', 'pdf', '-o', str(pdf_file), str(filled_docx_file)
+                    ], capture_output=True, text=True, timeout=60)
+                    
+                    if result.returncode == 0 and pdf_file.exists():
+                        pdf_success = True
+                        pdf_conversion_method = "unoconv"
+                        print(f"✅ PDF conversion successful with unoconv: {pdf_file}")
+                    else:
+                        print(f"⚠️  unoconv failed - Return code: {result.returncode}")
+                        print(f"⚠️  unoconv stderr: {result.stderr}")
+                except FileNotFoundError:
+                    print("⚠️  unoconv not found on system")
+                except Exception as e:
+                    print(f"⚠️  unoconv conversion failed: {e}")
                     
             # Method 3: Try using pandoc (if available)
             if not pdf_success:
@@ -650,7 +638,7 @@ async def process_document(
                     print("🔄 Trying pandoc conversion...")
                     result = subprocess.run([
                         'pandoc', str(filled_docx_file), '-o', str(pdf_file)
-                    ], capture_output=True, text=True, timeout=45)
+                    ], capture_output=True, text=True, timeout=60)
                     
                     if result.returncode == 0 and pdf_file.exists():
                         pdf_success = True
@@ -663,8 +651,20 @@ async def process_document(
                     print("⚠️  Pandoc not found on system")
                 except Exception as e:
                     print(f"⚠️  Pandoc conversion failed: {e}")
+            
+            # Method 4: Try docx2pdf only on Windows
+            if not pdf_success and platform.system() == "Windows":
+                try:
+                    print("🔄 Trying docx2pdf (Windows only)...")
+                    from docx2pdf import convert
+                    convert(str(filled_docx_file), str(pdf_file))
+                    pdf_success = True
+                    pdf_conversion_method = "docx2pdf-windows"
+                    print(f"✅ PDF conversion successful with docx2pdf: {pdf_file}")
+                except Exception as e:
+                    print(f"⚠️  docx2pdf failed: {e}")
                     
-            # Method 4: Create notice PDF explaining the situation
+            # Method 5: Create notice PDF explaining the situation
             if not pdf_success:
                 print("ℹ️  All PDF conversion methods failed, creating informational PDF...")
                 from reportlab.pdfgen import canvas

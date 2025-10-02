@@ -4,6 +4,5 @@ python-multipart==0.0.6
 supabase==2.0.0
 reportlab==4.0.4
 python-docx==0.8.11
-docx2pdf==0.1.8
 python-dotenv==1.0.0
 faker==19.6.2
