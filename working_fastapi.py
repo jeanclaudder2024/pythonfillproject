@@ -835,6 +835,21 @@ async def delete_template(template_id: str):
             "error": str(e)
         }, status_code=500)
 
+@app.get("/user-permissions")
+async def get_user_permissions():
+    """Get user permissions (simplified version)"""
+    return {
+        "success": True,
+        "permissions": {
+            "can_upload_templates": True,
+            "can_edit_templates": True,
+            "can_delete_templates": True,
+            "can_process_documents": True,
+            "template_limit": 100,
+            "documents_per_month": 1000
+        }
+    }
+
 @app.post("/upload-template")
 async def upload_template(
     name: str = Form(...),
