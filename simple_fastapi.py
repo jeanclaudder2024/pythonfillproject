@@ -24,9 +24,21 @@ import shutil
 import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Supabase client
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("⚠️  Supabase credentials not found. Using dummy data.")
+    supabase = None
+else:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("✅ Connected to Supabase database")
 
 app = FastAPI(title="Simple Document Service", version="1.0.0")
 
