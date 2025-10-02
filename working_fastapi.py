@@ -23,6 +23,22 @@ import re
 import shutil
 import random
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Supabase client
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("⚠️  Supabase credentials not found. Using dummy data.")
+    supabase = None
+else:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("✅ Connected to Supabase database")
 
 app = FastAPI(title="Working Document Service", version="1.0.0")
 
@@ -59,6 +75,176 @@ def save_templates():
 
 # Load templates on startup
 load_templates()
+
+async def get_real_vessel_data(vessel_imo: str):
+    """Fetch real vessel data from Supabase database"""
+    try:
+        if not supabase:
+            print("⚠️  Supabase not connected, using dummy data")
+            return get_dummy_vessel_data(vessel_imo)
+        
+        # Fetch vessel data from your real database
+        response = supabase.table('vessels').select('*').eq('imo', vessel_imo).execute()
+        
+        if response.data and len(response.data) > 0:
+            vessel = response.data[0]
+            print(f"✅ Found real vessel data for IMO: {vessel_imo}")
+            
+            # Map your real vessel data to placeholders
+            vessel_data = {
+                # Basic vessel info from your database
+                "vessel_name": vessel.get('name', 'Unknown Vessel'),
+                "imo": vessel_imo,
+                "imo_number": vessel_imo,
+                "vessel_type": vessel.get('vessel_type', 'Unknown Type'),
+                "flag": vessel.get('flag', 'Unknown Flag'),
+                "flag_state": vessel.get('flag', 'Unknown Flag'),
+                "owner": vessel.get('owner_name', 'Unknown Owner'),
+                "vessel_owner": vessel.get('owner_name', 'Unknown Owner'),
+                "operator": vessel.get('operator_name', 'Unknown Operator'),
+                "current_date": datetime.now().strftime('%Y-%m-%d'),
+                "vessel_id": str(vessel.get('id', '1')),
+                
+                # Additional real data from your database
+                "mmsi": vessel.get('mmsi', ''),
+                "callsign": vessel.get('callsign', ''),
+                "built": vessel.get('built', 0),
+                "deadweight": vessel.get('deadweight', 0),
+                "cargo_capacity": vessel.get('cargo_capacity', 0),
+                "length": vessel.get('length', 0),
+                "width": vessel.get('width', 0),
+                "beam": vessel.get('beam', ''),
+                "draught": vessel.get('draught', 0),
+                "draft": vessel.get('draft', ''),
+                "gross_tonnage": vessel.get('gross_tonnage', 0),
+                "crew_size": vessel.get('crew_size', 0),
+                "engine_power": vessel.get('engine_power', 0),
+                "fuel_consumption": vessel.get('fuel_consumption', 0),
+                "speed": vessel.get('speed', ''),
+                "status": vessel.get('status', ''),
+                "nav_status": vessel.get('nav_status', ''),
+                "current_lat": vessel.get('current_lat', 0),
+                "current_lng": vessel.get('current_lng', 0),
+                "course": vessel.get('course', 0),
+                "departure_port": vessel.get('departure_port', 0),
+                "destination_port": vessel.get('destination_port', 0),
+                "departure_port_name": vessel.get('departure_port_name', 'Unknown Port'),
+                "destination_port_name": vessel.get('destination_port_name', 'Unknown Port'),
+                "loading_port_name": vessel.get('loading_port_name', 'Unknown Port'),
+                "departure_date": vessel.get('departure_date', ''),
+                "arrival_date": vessel.get('arrival_date', ''),
+                "eta": vessel.get('eta', ''),
+                "loading_port": vessel.get('loading_port', ''),
+                "cargo_type": vessel.get('cargo_type', ''),
+                "cargo_quantity": vessel.get('cargo_quantity', 0),
+                "oil_type": vessel.get('oil_type', ''),
+                "oil_source": vessel.get('oil_source', ''),
+                "current_region": vessel.get('current_region', ''),
+                "buyer_name": vessel.get('buyer_name', ''),
+                "seller_name": vessel.get('seller_name', ''),
+                "source_company": vessel.get('source_company', ''),
+                "target_refinery": vessel.get('target_refinery', ''),
+                "deal_value": vessel.get('deal_value', 0),
+                "price": vessel.get('price', 0),
+                "market_price": vessel.get('market_price', 0),
+                "quantity": vessel.get('quantity', 0),
+                "departure_lat": vessel.get('departure_lat', 0),
+                "departure_lng": vessel.get('departure_lng', 0),
+                "destination_lat": vessel.get('destination_lat', 0),
+                "destination_lng": vessel.get('destination_lng', 0),
+                "route_distance": vessel.get('route_distance', 0),
+                "shipping_type": vessel.get('shipping_type', ''),
+                "route_info": vessel.get('route_info', ''),
+                "last_updated": vessel.get('last_updated', ''),
+                "company_id": vessel.get('company_id', ''),
+                
+                # ICPO Specific Fields (using real data where available)
+                "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
+                "icpo_date": datetime.now().strftime('%Y-%m-%d'),
+                "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+                "icpo_amount": f"USD {vessel.get('deal_value', random.randint(1000000, 10000000)):,}",
+                "icpo_currency": "USD",
+                "icpo_terms": "LC at sight",
+                "icpo_bank": "HSBC Bank",
+                "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
+                "icpo_swift": "HBUKGB4B",
+                "icpo_account": f"{random.randint(1000000000, 9999999999)}",
+                "icpo_beneficiary": vessel.get('seller_name', 'Sample Trading Company Ltd'),
+                "icpo_beneficiary_address": f"{vessel.get('source_company', '123 Marina Bay')}, Singapore",
+                "icpo_beneficiary_swift": "DBSBSGSG",
+                "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
+                "icpo_commodity": vessel.get('cargo_type', vessel.get('oil_type', 'Crude Oil')),
+                "icpo_quantity": f"{vessel.get('cargo_quantity', vessel.get('quantity', random.randint(10000, 100000)))} MT",
+                "icpo_specification": f"API 35-40, Sulfur < 0.5%",
+                "icpo_origin": vessel.get('oil_source', 'Malaysia'),
+                "icpo_destination": vessel.get('target_refinery', 'Singapore'),
+                "icpo_loading_port": vessel.get('loading_port_name', vessel.get('loading_port', 'Port Klang, Malaysia')),
+                "icpo_discharge_port": vessel.get('destination_port_name', 'Singapore Port'),
+                "icpo_loading_date": vessel.get('departure_date', (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d')),
+                "icpo_discharge_date": vessel.get('arrival_date', (datetime.now() + timedelta(days=25)).strftime('%Y-%m-%d')),
+                "icpo_price": f"USD {vessel.get('price', random.randint(50, 100))}.00 per MT",
+                "icpo_total_value": f"USD {vessel.get('deal_value', random.randint(5000000, 50000000)):,}",
+                "icpo_payment_terms": "LC at sight",
+                "icpo_delivery_terms": "FOB",
+                "icpo_inspection": "SGS",
+                "icpo_insurance": "All Risks",
+            }
+            
+            return vessel_data
+        else:
+            print(f"⚠️  No vessel found with IMO: {vessel_imo}, using dummy data")
+            return get_dummy_vessel_data(vessel_imo)
+            
+    except Exception as e:
+        print(f"❌ Error fetching vessel data: {e}")
+        return get_dummy_vessel_data(vessel_imo)
+
+def get_dummy_vessel_data(vessel_imo: str):
+    """Fallback dummy vessel data"""
+    return {
+        # Basic vessel info
+        "vessel_name": "Petroleum Express 529",
+        "imo": vessel_imo,
+        "imo_number": vessel_imo,
+        "vessel_type": "Crude Oil Tanker",
+        "flag": "Malta",
+        "flag_state": "Malta",
+        "owner": "Sample Shipping Company",
+        "vessel_owner": "Sample Shipping Company",
+        "current_date": datetime.now().strftime('%Y-%m-%d'),
+        "vessel_id": "1",
+        
+        # ICPO Specific Fields
+        "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
+        "icpo_date": datetime.now().strftime('%Y-%m-%d'),
+        "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+        "icpo_amount": f"USD {random.randint(1000000, 10000000):,}",
+        "icpo_currency": "USD",
+        "icpo_terms": "LC at sight",
+        "icpo_bank": "HSBC Bank",
+        "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
+        "icpo_swift": "HBUKGB4B",
+        "icpo_account": f"{random.randint(1000000000, 9999999999)}",
+        "icpo_beneficiary": "Sample Trading Company Ltd",
+        "icpo_beneficiary_address": "123 Marina Bay, Singapore",
+        "icpo_beneficiary_swift": "DBSBSGSG",
+        "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
+        "icpo_commodity": "Crude Oil",
+        "icpo_quantity": f"{random.randint(10000, 100000)} MT",
+        "icpo_specification": "API 35-40, Sulfur < 0.5%",
+        "icpo_origin": "Malaysia",
+        "icpo_destination": "Singapore",
+        "icpo_loading_port": "Port Klang, Malaysia",
+        "icpo_discharge_port": "Singapore Port",
+        "icpo_loading_date": (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d'),
+        "icpo_discharge_date": (datetime.now() + timedelta(days=25)).strftime('%Y-%m-%d'),
+        "icpo_price": f"USD {random.randint(50, 100)}.00 per MT",
+        "icpo_total_value": f"USD {random.randint(5000000, 50000000):,}",
+        "icpo_payment_terms": "LC at sight",
+        "icpo_delivery_terms": "FOB",
+        "icpo_inspection": "SGS",
+        "icpo_insurance": "All Risks",
+    }
 
 def extract_placeholders_from_docx(file_path):
     """Extract placeholders from a Word document"""
@@ -361,36 +547,97 @@ async def process_document(
                 "error": "Template ID not found in storage"
             }, status_code=404)
         
-        # Get vessel data (you can expand this to fetch from database)
-        vessel_data = {
-            # Basic vessel info
-            "vessel_name": "Petroleum Express 529",
-            "imo": vessel_imo,
-            "imo_number": vessel_imo,
-            "vessel_type": "Crude Oil Tanker",
-            "flag": "Malta",
-            "flag_state": "Malta",
-            "owner": "Sample Shipping Company",
-            "vessel_owner": "Sample Shipping Company",
-            "current_date": "2025-01-30",
-            "vessel_id": "1",
+        # Get REAL vessel data from your Supabase database
+        vessel_data = await get_real_vessel_data(vessel_imo)
+        
+        # Find the template file
+        templates_dir = Path("templates")
+        template_file_path = templates_dir / f"{template_id}.docx"
+        
+        if not template_file_path.exists():
+            return JSONResponse({
+                "success": False,
+                "message": "Template file not found",
+                "error": "Template file does not exist on server"
+            }, status_code=404)
+        
+        # Create output files
+        outputs_dir = Path("outputs")
+        outputs_dir.mkdir(exist_ok=True)
+        filled_docx_file = outputs_dir / f"{document_id}_filled.docx"
+        pdf_file = outputs_dir / f"{document_id}_filled.pdf"
+        
+        # Fill the Word template with vessel data
+        success = fill_word_template(template_file_path, filled_docx_file, vessel_data)
+        
+        if not success:
+            return JSONResponse({
+                "success": False,
+                "message": "Failed to fill template",
+                "error": "Could not process the Word template"
+            }, status_code=500)
+        
+        # Convert to PDF using reportlab with proper Word content extraction
+        pdf_success = False
+        try:
+            # Read the filled Word document and extract content properly
+            from docx import Document
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
             
-            # ICPO Specific Fields
-            "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
-            "icpo_date": datetime.now().strftime('%Y-%m-%d'),
-            "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
-            "icpo_amount": f"USD {random.randint(1000000, 10000000):,}",
-            "icpo_currency": "USD",
-            "icpo_terms": "LC at sight",
-            "icpo_bank": "HSBC Bank",
-            "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
-            "icpo_swift": "HBUKGB4B",
-            "icpo_account": f"{random.randint(1000000000, 9999999999)}",
-            "icpo_beneficiary": "Sample Trading Company Ltd",
-            "icpo_beneficiary_address": "123 Marina Bay, Singapore",
-            "icpo_beneficiary_swift": "DBSBSGSG",
-            "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
-            "icpo_commodity": "Crude Oil",
+            # Read the filled Word document
+            doc = Document(str(filled_docx_file))
+            
+            # Create PDF with proper formatting
+            pdf_doc = SimpleDocTemplate(str(pdf_file), pagesize=letter, 
+                                      rightMargin=72, leftMargin=72, 
+                                      topMargin=72, bottomMargin=18)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Extract and format content from Word document
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    # Determine paragraph style based on formatting
+                    if paragraph.style.name.startswith('Heading'):
+                        style = styles['Heading1']
+                    else:
+                        style = styles['Normal']
+                    
+                    # Create paragraph with proper formatting
+                    para = Paragraph(paragraph.text.strip(), style)
+                    story.append(para)
+                    story.append(Spacer(1, 6))
+            
+            # Extract tables from Word document
+            for table in doc.tables:
+                table_data = []
+                for row in table.rows:
+                    row_data = []
+                    for cell in row.cells:
+                        cell_text = cell.text.strip() if cell.text else ""
+                        row_data.append(cell_text)
+                    table_data.append(row_data)
+                
+                if table_data:
+                    # Create PDF table
+                    pdf_table = Table(table_data)
+                    pdf_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    story.append(pdf_table)
+                    story.append(Spacer(1, 12))
             "icpo_quantity": f"{random.randint(10000, 100000)} MT",
             "icpo_specification": "API 35-40, Sulfur < 0.5%",
             "icpo_origin": "Malaysia",
