@@ -535,7 +535,7 @@ async def test_conversion():
         
         test_pdf = outputs_dir / "test_conversion.pdf"
         
-        # Try LibreOffice conversion
+        # Try LibreOffice conversion (primary method for Docker)
         try:
             import subprocess
             cmd = [
@@ -552,9 +552,10 @@ async def test_conversion():
                 temp_docx.unlink()
                 return {
                     "status": "success",
-                    "message": "Word to PDF conversion working",
+                    "message": "Word to PDF conversion working with LibreOffice in Docker",
                     "libreoffice_output": result.stdout,
-                    "test_pdf_created": test_pdf.exists()
+                    "test_pdf_created": test_pdf.exists(),
+                    "method": "LibreOffice (Docker compatible)"
                 }
             else:
                 temp_docx.unlink()
@@ -567,7 +568,7 @@ async def test_conversion():
             temp_docx.unlink()
             return {
                 "status": "error",
-                "message": f"Conversion test failed: {str(e)}"
+                "message": f"LibreOffice conversion test failed: {str(e)}"
             }
             
     except Exception as e:
@@ -1194,20 +1195,54 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert Word document to PDF using docx2pdf to preserve exact design
+        # Convert Word document to PDF using LibreOffice in Docker for reliable conversion
         pdf_success = False
         try:
-            print(f"Converting Word document to PDF using docx2pdf to preserve exact design...")
+            print(f"Converting Word document to PDF using LibreOffice in Docker...")
             
-            # Use docx2pdf for exact Word document preservation
-            from docx2pdf import convert
-            print(f"Converting {filled_docx_file} to {pdf_file}")
-            convert(str(filled_docx_file), str(pdf_file))
-            pdf_success = True
-            print(f"✅ PDF conversion successful using docx2pdf: {pdf_file}")
+            # Method 1: Try LibreOffice (works reliably in Docker)
+            try:
+                import subprocess
+                cmd = [
+                    'libreoffice',
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', str(outputs_dir),
+                    str(filled_docx_file)
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                if result.returncode == 0:
+                    # LibreOffice creates PDF with same name as DOCX
+                    docx_name = filled_docx_file.stem
+                    libreoffice_pdf = outputs_dir / f"{docx_name}.pdf"
+                    
+                    if libreoffice_pdf.exists():
+                        libreoffice_pdf.rename(pdf_file)
+                        pdf_success = True
+                        print(f"✅ PDF conversion successful using LibreOffice: {pdf_file}")
+                    else:
+                        raise Exception("LibreOffice PDF file not found")
+                else:
+                    raise Exception(f"LibreOffice failed: {result.stderr}")
+                    
+            except Exception as libreoffice_error:
+                print(f"LibreOffice conversion failed: {libreoffice_error}")
+                
+                # Method 2: Try docx2pdf as fallback (may not work in Docker)
+                try:
+                    from docx2pdf import convert
+                    print("Trying docx2pdf as fallback...")
+                    convert(str(filled_docx_file), str(pdf_file))
+                    pdf_success = True
+                    print(f"✅ PDF conversion successful using docx2pdf: {pdf_file}")
+                    
+                except Exception as docx2pdf_error:
+                    print(f"docx2pdf conversion failed: {docx2pdf_error}")
+                    raise Exception("All PDF conversion methods failed")
             
         except Exception as e:
-            print(f"❌ docx2pdf conversion failed: {e}")
+            print(f"❌ All PDF conversion methods failed: {e}")
             # Create a fallback text file
             with open(txt_file, 'w', encoding='utf-8') as f:
                 f.write(f"Document processed successfully for vessel {vessel_imo}\n")
