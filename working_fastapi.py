@@ -306,6 +306,30 @@ async def root():
 async def health():
     return {"status": "healthy", "service": "document-processing"}
 
+@app.get("/test-libreoffice")
+async def test_libreoffice():
+    """Test if LibreOffice is working properly"""
+    try:
+        import subprocess
+        result = subprocess.run(['libreoffice', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return {
+                "status": "success",
+                "libreoffice_version": result.stdout.strip(),
+                "message": "LibreOffice is working properly"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"LibreOffice test failed: {result.stderr}",
+                "return_code": result.returncode
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"LibreOffice test failed: {str(e)}"
+        }
+
 @app.get("/templates")
 async def get_templates():
     """Get list of available templates"""
@@ -896,14 +920,46 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert to PDF using docx2pdf (now works reliably in Docker)
+        # Convert to PDF using LibreOffice directly (most reliable method)
         pdf_success = False
         try:
-            from docx2pdf import convert
-            print(f"Converting {filled_docx_file} to PDF...")
-            convert(str(filled_docx_file), str(pdf_file))
-            pdf_success = True
-            print(f"✅ PDF conversion successful: {pdf_file}")
+            import subprocess
+            import os
+            
+            print(f"Converting {filled_docx_file} to PDF using LibreOffice...")
+            
+            # Use LibreOffice to convert DOCX to PDF
+            cmd = [
+                'libreoffice',
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', str(outputs_dir),
+                str(filled_docx_file)
+            ]
+            
+            print(f"Running command: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                # LibreOffice creates a PDF with the same name as the DOCX file
+                # We need to rename it to match our expected filename
+                docx_name = filled_docx_file.stem  # Get filename without extension
+                libreoffice_pdf = outputs_dir / f"{docx_name}.pdf"
+                
+                if libreoffice_pdf.exists():
+                    # Rename to our expected filename
+                    libreoffice_pdf.rename(pdf_file)
+                    pdf_success = True
+                    print(f"✅ PDF conversion successful: {pdf_file}")
+                else:
+                    print(f"❌ LibreOffice PDF file not found: {libreoffice_pdf}")
+                    raise Exception("LibreOffice PDF file not created")
+            else:
+                print(f"❌ LibreOffice conversion failed:")
+                print(f"Return code: {result.returncode}")
+                print(f"STDOUT: {result.stdout}")
+                print(f"STDERR: {result.stderr}")
+                raise Exception(f"LibreOffice conversion failed: {result.stderr}")
                 
         except Exception as e:
             print(f"❌ PDF conversion failed: {e}")
