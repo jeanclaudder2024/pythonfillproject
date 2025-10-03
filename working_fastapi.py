@@ -397,6 +397,41 @@ async def test_conversion():
             "message": f"Test setup failed: {str(e)}"
         }
 
+@app.get("/test-download")
+async def test_download():
+    """Test download functionality with a sample PDF"""
+    try:
+        from reportlab.pdfgen import canvas
+        from pathlib import Path
+        import tempfile
+        
+        # Create a test PDF
+        outputs_dir = Path("outputs")
+        outputs_dir.mkdir(exist_ok=True)
+        
+        test_pdf_path = outputs_dir / "test_download.pdf"
+        
+        # Create a simple PDF
+        c = canvas.Canvas(str(test_pdf_path))
+        c.drawString(100, 750, "Test PDF Download")
+        c.drawString(100, 700, "This is a test PDF for download functionality.")
+        c.drawString(100, 650, f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        c.save()
+        
+        return {
+            "status": "success",
+            "message": "Test PDF created successfully",
+            "file_path": str(test_pdf_path),
+            "file_exists": test_pdf_path.exists(),
+            "download_url": f"/download/test-download-id"
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Test download failed: {str(e)}"
+        }
+
 @app.get("/templates")
 async def get_templates():
     """Get list of available templates"""
@@ -1107,6 +1142,8 @@ async def download_document(document_id: str, format: str = "pdf"):
         outputs_dir = Path("outputs")
         outputs_dir.mkdir(exist_ok=True)
         
+        print(f"🔍 Download request for document_id: {document_id}, format: {format}")
+        
         if format.lower() == "pdf":
             file_path = outputs_dir / f"{document_id}_filled.pdf"
             media_type = "application/pdf"
@@ -1116,9 +1153,15 @@ async def download_document(document_id: str, format: str = "pdf"):
             media_type = "text/plain"
             filename = f"vessel_report_{document_id}.txt"
         
+        print(f"📁 Looking for file: {file_path}")
+        print(f"📁 File exists: {file_path.exists()}")
+        
         if not file_path.exists():
             # Check if there's a text fallback file
             fallback_txt_path = outputs_dir / f"{document_id}_filled_fallback.txt"
+            print(f"📁 Checking fallback: {fallback_txt_path}")
+            print(f"📁 Fallback exists: {fallback_txt_path.exists()}")
+            
             if fallback_txt_path.exists():
                 file_path = fallback_txt_path
                 media_type = "text/plain"
@@ -1140,11 +1183,28 @@ For support, please contact the system administrator.
                 # Create the fallback file
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(fallback_content)
+                print(f"📝 Created fallback file: {file_path}")
         
-        return FileResponse(
-            path=str(file_path),
+        print(f"📤 Returning file: {file_path}")
+        print(f"📤 Media type: {media_type}")
+        print(f"📤 Filename: {filename}")
+        
+        # Use Response with proper headers for better browser compatibility
+        from fastapi.responses import Response
+        
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        headers = {
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Type': media_type,
+            'Content-Length': str(len(content))
+        }
+        
+        return Response(
+            content=content,
             media_type=media_type,
-            filename=filename
+            headers=headers
         )
         
     except Exception as e:
