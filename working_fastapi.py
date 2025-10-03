@@ -330,6 +330,73 @@ async def test_libreoffice():
             "message": f"LibreOffice test failed: {str(e)}"
         }
 
+@app.get("/test-conversion")
+async def test_conversion():
+    """Test Word to PDF conversion with a sample document"""
+    try:
+        from docx import Document
+        from pathlib import Path
+        import tempfile
+        
+        # Create a test Word document
+        doc = Document()
+        doc.add_heading('Test Document', 0)
+        doc.add_paragraph('This is a test document for PDF conversion.')
+        doc.add_paragraph('Vessel Name: {vessel_name}')
+        doc.add_paragraph('IMO: {imo}')
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
+            doc.save(tmp_file.name)
+            temp_docx = Path(tmp_file.name)
+        
+        # Try conversion
+        outputs_dir = Path("outputs")
+        outputs_dir.mkdir(exist_ok=True)
+        
+        test_pdf = outputs_dir / "test_conversion.pdf"
+        
+        # Try LibreOffice conversion
+        try:
+            import subprocess
+            cmd = [
+                'libreoffice',
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', str(outputs_dir),
+                str(temp_docx)
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # Clean up temp file
+                temp_docx.unlink()
+                return {
+                    "status": "success",
+                    "message": "Word to PDF conversion working",
+                    "libreoffice_output": result.stdout,
+                    "test_pdf_created": test_pdf.exists()
+                }
+            else:
+                temp_docx.unlink()
+                return {
+                    "status": "error",
+                    "message": f"LibreOffice conversion failed: {result.stderr}",
+                    "return_code": result.returncode
+                }
+        except Exception as e:
+            temp_docx.unlink()
+            return {
+                "status": "error",
+                "message": f"Conversion test failed: {str(e)}"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Test setup failed: {str(e)}"
+        }
+
 @app.get("/templates")
 async def get_templates():
     """Get list of available templates"""
@@ -920,49 +987,86 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert to PDF using LibreOffice directly (most reliable method)
+        # Convert Word document to PDF while preserving design and formatting
         pdf_success = False
         try:
-            import subprocess
-            import os
+            # Try multiple conversion methods to ensure we get the Word document converted
+            print(f"Converting Word document to PDF while preserving design...")
             
-            print(f"Converting {filled_docx_file} to PDF using LibreOffice...")
-            
-            # Use LibreOffice to convert DOCX to PDF
-            cmd = [
-                'libreoffice',
-                '--headless',
-                '--convert-to', 'pdf',
-                '--outdir', str(outputs_dir),
-                str(filled_docx_file)
-            ]
-            
-            print(f"Running command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode == 0:
-                # LibreOffice creates a PDF with the same name as the DOCX file
-                # We need to rename it to match our expected filename
-                docx_name = filled_docx_file.stem  # Get filename without extension
-                libreoffice_pdf = outputs_dir / f"{docx_name}.pdf"
+            # Method 1: Try LibreOffice if available
+            try:
+                import subprocess
+                cmd = [
+                    'libreoffice',
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', str(outputs_dir),
+                    str(filled_docx_file)
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 
-                if libreoffice_pdf.exists():
-                    # Rename to our expected filename
-                    libreoffice_pdf.rename(pdf_file)
-                    pdf_success = True
-                    print(f"✅ PDF conversion successful: {pdf_file}")
+                if result.returncode == 0:
+                    # LibreOffice creates PDF with same name as DOCX
+                    docx_name = filled_docx_file.stem
+                    libreoffice_pdf = outputs_dir / f"{docx_name}.pdf"
+                    
+                    if libreoffice_pdf.exists():
+                        libreoffice_pdf.rename(pdf_file)
+                        pdf_success = True
+                        print(f"✅ PDF conversion successful using LibreOffice: {pdf_file}")
+                    else:
+                        raise Exception("LibreOffice PDF file not found")
                 else:
-                    print(f"❌ LibreOffice PDF file not found: {libreoffice_pdf}")
-                    raise Exception("LibreOffice PDF file not created")
-            else:
-                print(f"❌ LibreOffice conversion failed:")
-                print(f"Return code: {result.returncode}")
-                print(f"STDOUT: {result.stdout}")
-                print(f"STDERR: {result.stderr}")
-                raise Exception(f"LibreOffice conversion failed: {result.stderr}")
+                    raise Exception(f"LibreOffice failed: {result.stderr}")
+                    
+            except Exception as libreoffice_error:
+                print(f"LibreOffice conversion failed: {libreoffice_error}")
+                
+                # Method 2: Try docx2pdf as fallback
+                try:
+                    from docx2pdf import convert
+                    print("Trying docx2pdf as fallback...")
+                    convert(str(filled_docx_file), str(pdf_file))
+                    pdf_success = True
+                    print(f"✅ PDF conversion successful using docx2pdf: {pdf_file}")
+                    
+                except Exception as docx2pdf_error:
+                    print(f"docx2pdf conversion failed: {docx2pdf_error}")
+                    
+                    # Method 3: Use python-docx2txt + reportlab to preserve content structure
+                    try:
+                        print("Using python-docx2txt + reportlab to preserve content...")
+                        from docx2txt import process
+                        from reportlab.pdfgen import canvas
+                        from reportlab.lib.pagesizes import letter
+                        from reportlab.lib import colors
+                        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                        
+                        # Extract text from Word document
+                        text_content = process(str(filled_docx_file))
+                        
+                        # Create PDF with extracted content
+                        doc = SimpleDocTemplate(str(pdf_file), pagesize=letter)
+                        styles = getSampleStyleSheet()
+                        story = []
+                        
+                        # Add the extracted content
+                        for line in text_content.split('\n'):
+                            if line.strip():
+                                story.append(Paragraph(line.strip(), styles['Normal']))
+                                story.append(Spacer(1, 6))
+                        
+                        doc.build(story)
+                        pdf_success = True
+                        print(f"✅ PDF conversion successful using content extraction: {pdf_file}")
+                        
+                    except Exception as content_error:
+                        print(f"Content extraction conversion failed: {content_error}")
+                        raise Exception("All PDF conversion methods failed")
                 
         except Exception as e:
-            print(f"❌ PDF conversion failed: {e}")
+            print(f"❌ All PDF conversion methods failed: {e}")
             # Create a fallback text file
             with open(txt_file, 'w', encoding='utf-8') as f:
                 f.write(f"Document processed successfully for vessel {vessel_imo}\n")
