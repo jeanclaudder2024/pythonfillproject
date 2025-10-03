@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Working FastAPI service with all endpoints - CLEAN VERSION
+Updated FastAPI service for document processing
+Processes Word templates with vessel data and converts to PDF with exact design
 """
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -12,12 +13,6 @@ import os
 import tempfile
 import json
 from pathlib import Path
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
 from docx import Document
 import re
 import shutil
@@ -25,6 +20,7 @@ import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client, Client
+import subprocess
 
 # Load environment variables
 load_dotenv()
@@ -34,13 +30,13 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("⚠️  Supabase credentials not found. Using dummy data.")
+    print("WARNING: Supabase credentials not found. Using dummy data.")
     supabase = None
 else:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("✅ Connected to Supabase database")
+    print("SUCCESS: Connected to Supabase database")
 
-app = FastAPI(title="Working Document Service", version="1.0.0")
+app = FastAPI(title="Complete Document Service", version="2.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -51,7 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Simple in-memory storage for templates (in production, use a database)
+# Template storage
 templates_storage = []
 templates_file = Path("templates_data.json")
 
@@ -76,230 +72,360 @@ def save_templates():
 # Load templates on startup
 load_templates()
 
-async def get_real_vessel_data(vessel_imo: str):
-    """Fetch real vessel data from Supabase database"""
+async def get_vessel_data(vessel_imo: str):
+    """Get vessel data from database"""
     try:
         if not supabase:
-            print("⚠️  Supabase not connected, using dummy data")
             return get_dummy_vessel_data(vessel_imo)
         
-        # Fetch vessel data from your real database
+        # Fetch vessel data from database
         response = supabase.table('vessels').select('*').eq('imo', vessel_imo).execute()
         
         if response.data and len(response.data) > 0:
             vessel = response.data[0]
-            print(f"✅ Found real vessel data for IMO: {vessel_imo}")
-            
-            # Map your real vessel data to placeholders
-            vessel_data = {
-                # Basic vessel info from your database
-                "vessel_name": vessel.get('name', 'Unknown Vessel'),
-                "imo": vessel_imo,
-                "imo_number": vessel_imo,
-                "vessel_type": vessel.get('vessel_type', 'Unknown Type'),
-                "flag": vessel.get('flag', 'Unknown Flag'),
-                "flag_state": vessel.get('flag', 'Unknown Flag'),
-                "owner": vessel.get('owner_name', 'Unknown Owner'),
-                "vessel_owner": vessel.get('owner_name', 'Unknown Owner'),
-                "operator": vessel.get('operator_name', 'Unknown Operator'),
-                "current_date": datetime.now().strftime('%Y-%m-%d'),
-                "vessel_id": str(vessel.get('id', '1')),
-                
-                # Additional real data from your database
-                "mmsi": vessel.get('mmsi', ''),
-                "callsign": vessel.get('callsign', ''),
-                "built": vessel.get('built', 0),
-                "deadweight": vessel.get('deadweight', 0),
-                "cargo_capacity": vessel.get('cargo_capacity', 0),
-                "length": vessel.get('length', 0),
-                "width": vessel.get('width', 0),
-                "beam": vessel.get('beam', ''),
-                "draught": vessel.get('draught', 0),
-                "draft": vessel.get('draft', ''),
-                "gross_tonnage": vessel.get('gross_tonnage', 0),
-                "crew_size": vessel.get('crew_size', 0),
-                "engine_power": vessel.get('engine_power', 0),
-                "fuel_consumption": vessel.get('fuel_consumption', 0),
-                "speed": vessel.get('speed', ''),
-                "status": vessel.get('status', ''),
-                "nav_status": vessel.get('nav_status', ''),
-                "current_lat": vessel.get('current_lat', 0),
-                "current_lng": vessel.get('current_lng', 0),
-                "course": vessel.get('course', 0),
-                "departure_port": vessel.get('departure_port', 0),
-                "destination_port": vessel.get('destination_port', 0),
-                "departure_port_name": vessel.get('departure_port_name', 'Unknown Port'),
-                "destination_port_name": vessel.get('destination_port_name', 'Unknown Port'),
-                "loading_port_name": vessel.get('loading_port_name', 'Unknown Port'),
-                "departure_date": vessel.get('departure_date', ''),
-                "arrival_date": vessel.get('arrival_date', ''),
-                "eta": vessel.get('eta', ''),
-                "loading_port": vessel.get('loading_port', ''),
-                "cargo_type": vessel.get('cargo_type', ''),
-                "cargo_quantity": vessel.get('cargo_quantity', 0),
-                "oil_type": vessel.get('oil_type', ''),
-                "oil_source": vessel.get('oil_source', ''),
-                "current_region": vessel.get('current_region', ''),
-                "buyer_name": vessel.get('buyer_name', ''),
-                "seller_name": vessel.get('seller_name', ''),
-                "source_company": vessel.get('source_company', ''),
-                "target_refinery": vessel.get('target_refinery', ''),
-                "deal_value": vessel.get('deal_value', 0),
-                "price": vessel.get('price', 0),
-                "market_price": vessel.get('market_price', 0),
-                "quantity": vessel.get('quantity', 0),
-                "departure_lat": vessel.get('departure_lat', 0),
-                "departure_lng": vessel.get('departure_lng', 0),
-                "destination_lat": vessel.get('destination_lat', 0),
-                "destination_lng": vessel.get('destination_lng', 0),
-                "route_distance": vessel.get('route_distance', 0),
-                "shipping_type": vessel.get('shipping_type', ''),
-                "route_info": vessel.get('route_info', ''),
-                "last_updated": vessel.get('last_updated', ''),
-                "company_id": vessel.get('company_id', ''),
-                
-                # ICPO Specific Fields (using real data where available)
-                "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
-                "icpo_date": datetime.now().strftime('%Y-%m-%d'),
-                "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
-                "icpo_amount": f"USD {vessel.get('deal_value', random.randint(1000000, 10000000)):,}",
-                "icpo_currency": "USD",
-                "icpo_terms": "LC at sight",
-                "icpo_bank": "HSBC Bank",
-                "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
-                "icpo_swift": "HBUKGB4B",
-                "icpo_account": f"{random.randint(1000000000, 9999999999)}",
-                "icpo_beneficiary": vessel.get('seller_name', 'Sample Trading Company Ltd'),
-                "icpo_beneficiary_address": f"{vessel.get('source_company', '123 Marina Bay')}, Singapore",
-                "icpo_beneficiary_swift": "DBSBSGSG",
-                "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
-                "icpo_commodity": vessel.get('cargo_type', vessel.get('oil_type', 'Crude Oil')),
-                "icpo_quantity": f"{vessel.get('cargo_quantity', vessel.get('quantity', random.randint(10000, 100000)))} MT",
-                "icpo_specification": f"API 35-40, Sulfur < 0.5%",
-                "icpo_origin": vessel.get('oil_source', 'Malaysia'),
-                "icpo_destination": vessel.get('target_refinery', 'Singapore'),
-                "icpo_loading_port": vessel.get('loading_port_name', vessel.get('loading_port', 'Port Klang, Malaysia')),
-                "icpo_discharge_port": vessel.get('destination_port_name', 'Singapore Port'),
-                "icpo_loading_date": vessel.get('departure_date', (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d')),
-                "icpo_discharge_date": vessel.get('arrival_date', (datetime.now() + timedelta(days=25)).strftime('%Y-%m-%d')),
-                "icpo_price": f"USD {vessel.get('price', random.randint(50, 100))}.00 per MT",
-                "icpo_total_value": f"USD {vessel.get('deal_value', random.randint(5000000, 50000000)):,}",
-                "icpo_payment_terms": "LC at sight",
-                "icpo_delivery_terms": "FOB",
-                "icpo_inspection": "SGS",
-                "icpo_insurance": "All Risks",
-            }
-            
-            return vessel_data
+            return map_vessel_data(vessel)
         else:
-            print(f"⚠️  No vessel found with IMO: {vessel_imo}, using dummy data")
             return get_dummy_vessel_data(vessel_imo)
             
     except Exception as e:
-        print(f"❌ Error fetching vessel data: {e}")
+        print(f"Error fetching vessel data: {e}")
         return get_dummy_vessel_data(vessel_imo)
 
-def get_dummy_vessel_data(vessel_imo: str):
-    """Fallback dummy vessel data"""
+def map_vessel_data(vessel):
+    """Map vessel data to placeholders"""
     return {
-        # Basic vessel info
-        "vessel_name": "Petroleum Express 529",
-        "imo": vessel_imo,
-        "imo_number": vessel_imo,
-        "vessel_type": "Crude Oil Tanker",
-        "flag": "Malta",
-        "flag_state": "Malta",
-        "owner": "Sample Shipping Company",
-        "vessel_owner": "Sample Shipping Company",
-        "current_date": datetime.now().strftime('%Y-%m-%d'),
-        "vessel_id": "1",
+        # Vessel data
+        'imo_number': vessel.get('imo', 'IMO1234567'),
+        'vessel_name': vessel.get('name', 'Sample Vessel'),
+        'flag_state': vessel.get('flag', 'Malta'),
+        'vessel_type': vessel.get('vessel_type', 'Crude Oil Tanker'),
+        'deadweight': vessel.get('deadweight', '75000'),
+        'gross_tonnage': vessel.get('gross_tonnage', '45000'),
+        'year_built': vessel.get('built', '2015'),
+        'length': vessel.get('length', '200.5'),
+        'beam': vessel.get('beam', '32.2'),
+        'draft': vessel.get('draft', '12.5'),
+        'speed': vessel.get('speed', '14.5'),
         
-        # ICPO Specific Fields
-        "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
-        "icpo_date": datetime.now().strftime('%Y-%m-%d'),
-        "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
-        "icpo_amount": f"USD {random.randint(1000000, 10000000):,}",
-        "icpo_currency": "USD",
-        "icpo_terms": "LC at sight",
-        "icpo_bank": "HSBC Bank",
-        "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
-        "icpo_swift": "HBUKGB4B",
-        "icpo_account": f"{random.randint(1000000000, 9999999999)}",
-        "icpo_beneficiary": "Sample Trading Company Ltd",
-        "icpo_beneficiary_address": "123 Marina Bay, Singapore",
-        "icpo_beneficiary_swift": "DBSBSGSG",
-        "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
-        "icpo_commodity": "Crude Oil",
-        "icpo_quantity": f"{random.randint(10000, 100000)} MT",
-        "icpo_specification": "API 35-40, Sulfur < 0.5%",
-        "icpo_origin": "Malaysia",
-        "icpo_destination": "Singapore",
-        "icpo_loading_port": "Port Klang, Malaysia",
-        "icpo_discharge_port": "Singapore Port",
-        "icpo_loading_date": (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d'),
-        "icpo_discharge_date": (datetime.now() + timedelta(days=25)).strftime('%Y-%m-%d'),
-        "icpo_price": f"USD {random.randint(50, 100)}.00 per MT",
-        "icpo_total_value": f"USD {random.randint(5000000, 50000000):,}",
-        "icpo_payment_terms": "LC at sight",
-        "icpo_delivery_terms": "FOB",
-        "icpo_inspection": "SGS",
-        "icpo_insurance": "All Risks",
+        # Company data
+        'buyer_company_name': 'Petroleum Trading Ltd.',
+        'buyer_address': '123 Marina Bay, Singapore 018956',
+        'buyer_email': 'buyer@petroleumtrading.com',
+        'buyer_tel': '+65 6123 4567',
+        'seller_company': 'Global Oil Trading Co.',
+        'seller_address': '456 Oil Street, Rotterdam, Netherlands',
+        'seller_email': 'seller@globaloil.com',
+        'seller_tel': '+31 20 123 4567',
+        
+        # Port data
+        'port_loading': 'Port Klang, Malaysia',
+        'port_discharge': 'Singapore Port',
+        'origin': 'Malaysia',
+        'country_of_origin': 'Malaysia',
+        
+        # Financial data
+        'price': 'USD 85.50',
+        'total_amount': 'USD 4,275,000.00',
+        'payment_terms': 'LC at sight',
+        'transaction_currency': 'USD',
+        'quantity': '50,000 MT',
+        
+        # Product data
+        'commodity': 'Crude Oil',
+        'product_description': 'Malaysian Light Crude Oil',
+        'specification': 'API 35-40, Sulfur < 0.5%',
+        
+        # Date data
+        'issue_date': datetime.now().strftime('%Y-%m-%d'),
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'validity': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+        
+        # Document data
+        'document_number': f"DOC-{datetime.now().year}-{random.randint(1000, 9999)}",
+        'invoice_no': f"INV-{datetime.now().year}-{random.randint(1000, 9999)}",
+        
+        # Bank data
+        'buyer_bank_name': 'DBS Bank Ltd.',
+        'buyer_swift': 'DBSSSGSG',
+        'seller_bank_name': 'ABN AMRO Bank N.V.',
+        'seller_swift': 'ABNANL2A',
     }
+
+def get_dummy_vessel_data(vessel_imo):
+    """Generate dummy vessel data"""
+    return map_vessel_data({
+        'imo': vessel_imo,
+        'name': 'Sample Vessel',
+        'flag': 'Malta',
+        'vessel_type': 'Crude Oil Tanker',
+        'deadweight': '75000',
+        'gross_tonnage': '45000',
+        'built': '2015',
+        'length': '200.5',
+        'beam': '32.2',
+        'draft': '12.5',
+        'speed': '14.5'
+    })
+
+def extract_placeholders_from_docx(file_path):
+    """Extract placeholders from Word document"""
+    placeholders = set()
+    
+    try:
+        doc = Document(file_path)
+        
+        # Extract from paragraphs
+        for paragraph in doc.paragraphs:
+            text = paragraph.text
+            matches = re.findall(r'\{([^}]+)\}', text)
+            placeholders.update(matches)
+        
+        # Extract from tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        text = paragraph.text
+                        matches = re.findall(r'\{([^}]+)\}', text)
+                        placeholders.update(matches)
+        
+        return list(placeholders)
+        
+    except Exception as e:
+        print(f"Error extracting placeholders: {e}")
+        return []
+
+def fill_word_template(template_path, output_path, vessel_data):
+    """Fill Word template with data - PRESERVES EXACT DESIGN"""
+    try:
+        # Copy template to output
+        shutil.copy2(template_path, output_path)
+        
+        # Open the document
+        doc = Document(output_path)
+        
+        # Replace placeholders in paragraphs
+        for paragraph in doc.paragraphs:
+            for placeholder in vessel_data:
+                if f"{{{placeholder}}}" in paragraph.text:
+                    paragraph.text = paragraph.text.replace(f"{{{placeholder}}}", str(vessel_data[placeholder]))
+        
+        # Replace placeholders in tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        for placeholder in vessel_data:
+                            if f"{{{placeholder}}}" in paragraph.text:
+                                paragraph.text = paragraph.text.replace(f"{{{placeholder}}}", str(vessel_data[placeholder]))
+        
+        # Save the document
+        doc.save(output_path)
+        return True
+        
+    except Exception as e:
+        print(f"Error filling template: {e}")
+        return False
+
+def convert_docx_to_pdf(docx_path, pdf_path):
+    """Convert DOCX to PDF using LibreOffice - PRESERVES EXACT DESIGN"""
+    try:
+        # Create temporary directory for LibreOffice
+        temp_dir = tempfile.mkdtemp()
+        
+        # Try LibreOffice first (Linux)
+        result = subprocess.run([
+            'libreoffice', '--headless', '--convert-to', 'pdf', 
+            '--outdir', temp_dir, docx_path
+        ], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            # Move the generated PDF to the target location
+            temp_pdf = os.path.join(temp_dir, os.path.basename(docx_path).replace('.docx', '.pdf'))
+            if os.path.exists(temp_pdf):
+                shutil.move(temp_pdf, pdf_path)
+                shutil.rmtree(temp_dir)
+                return True
+            
+    except Exception as e:
+        print(f"LibreOffice conversion failed: {e}")
+    
+    try:
+        # Try unoconv as fallback
+        result = subprocess.run([
+            'unoconv', '-f', 'pdf', '-o', pdf_path, docx_path
+        ], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            return True
+            
+    except Exception as e:
+        print(f"unoconv conversion failed: {e}")
+    
+    # Clean up temp directory
+    try:
+        shutil.rmtree(temp_dir)
+    except:
+        pass
+    
+    return False
 
 @app.get("/")
 async def root():
-    return {"message": "Working Document Service is running", "status": "ok"}
+    return {"message": "Complete Document Service is running", "status": "ok"}
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": "document-processing"}
+    return {"status": "healthy", "service": "complete-document-processing"}
 
 @app.get("/templates")
 async def get_templates():
     """Get list of available templates"""
     return templates_storage
 
-@app.get("/vessels")
-async def get_vessels():
-    return [
-        {
-            "id": "1",
-            "name": "Petroleum Express 529",
-            "imo": "IMO1861018",
-            "vessel_type": "Crude Oil Tanker",
-            "flag": "Malta"
-        },
-        {
-            "id": "2", 
-            "name": "Atlantic Voyager 805",
-            "imo": "IMO2379622",
-            "vessel_type": "Container Ship",
-            "flag": "Panama"
+@app.post("/upload-template")
+async def upload_template(file: UploadFile = File(...)):
+    """Upload a new template"""
+    try:
+        # Create templates directory
+        templates_dir = Path("templates")
+        templates_dir.mkdir(exist_ok=True)
+        
+        # Save uploaded file
+        file_path = templates_dir / file.filename
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Extract placeholders
+        placeholders = extract_placeholders_from_docx(file_path)
+        
+        # Create template info
+        template_info = {
+            "id": str(uuid.uuid4()),
+            "name": file.filename.replace('.docx', ''),
+            "description": f"Template with {len(placeholders)} placeholders",
+            "file_name": file.filename,
+            "file_size": len(content),
+            "placeholders": placeholders,
+            "is_active": True,
+            "created_at": datetime.now().isoformat()
         }
-    ]
+        
+        # Save to storage
+        templates_storage.append(template_info)
+        save_templates()
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Template uploaded successfully",
+            "template": template_info
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Template upload failed: {str(e)}",
+            "error": str(e)
+        }, status_code=500)
 
-@app.get("/user-permissions")
-async def get_user_permissions():
-    """Get user permissions (simplified version)"""
-    return {
-        "success": True,
-        "permissions": {
-            "can_upload_templates": True,
-            "can_edit_templates": True,
-            "can_delete_templates": True,
-            "can_process_documents": True,
-            "template_limit": 100,
-            "documents_per_month": 1000
-        }
-    }
+@app.post("/process-document")
+async def process_document(
+    template_id: str = Form(...),
+    vessel_imo: str = Form(...),
+    format: str = Form("pdf")
+):
+    """Process document with real data - PRESERVES EXACT TEMPLATE DESIGN"""
+    try:
+        # Find template
+        template = None
+        for t in templates_storage:
+            if t["id"] == template_id:
+                template = t
+                break
+        
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Get vessel data
+        vessel_data = await get_vessel_data(vessel_imo)
+        
+        # Create outputs directory
+        outputs_dir = Path("outputs")
+        outputs_dir.mkdir(exist_ok=True)
+        
+        # Generate document ID
+        document_id = str(uuid.uuid4())
+        
+        # Process template
+        template_path = Path("templates") / template["file_name"]
+        docx_output = outputs_dir / f"{document_id}.docx"
+        pdf_output = outputs_dir / f"{document_id}.pdf"
+        
+        # Fill template with data
+        if not fill_word_template(template_path, docx_output, vessel_data):
+            raise HTTPException(status_code=500, detail="Failed to fill template")
+        
+        # Convert to PDF if requested
+        pdf_conversion_success = False
+        if format.lower() == "pdf":
+            pdf_conversion_success = convert_docx_to_pdf(docx_output, pdf_output)
+            if not pdf_conversion_success:
+                print("PDF conversion failed, DOCX will be available")
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Document processed successfully",
+            "document_id": document_id,
+            "format": format,
+            "docx_available": True,
+            "pdf_available": pdf_conversion_success,
+            "pdf_conversion": "success" if pdf_conversion_success else "failed",
+            "vessel_data_used": len(vessel_data)
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Document processing failed: {str(e)}",
+            "error": str(e)
+        }, status_code=500)
+
+@app.get("/download/{document_id}")
+async def download_document(document_id: str, format: str = "pdf"):
+    """Download processed document"""
+    try:
+        outputs_dir = Path("outputs")
+        
+        if format.lower() == "pdf":
+            file_path = outputs_dir / f"{document_id}.pdf"
+            if not file_path.exists():
+                # Try DOCX if PDF not available
+                file_path = outputs_dir / f"{document_id}.docx"
+                if not file_path.exists():
+                    raise HTTPException(status_code=404, detail="Document not found")
+        else:
+            file_path = outputs_dir / f"{document_id}.docx"
+            if not file_path.exists():
+                raise HTTPException(status_code=404, detail="Document not found")
+        
+        return FileResponse(
+            path=file_path,
+            filename=file_path.name,
+            media_type='application/octet-stream'
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    print("Starting Working Document Service...")
+    print("Starting Complete Document Service...")
     print("Available endpoints:")
     print("  GET  /")
     print("  GET  /health")
     print("  GET  /templates")
-    print("  GET  /vessels")
-    print("  GET  /user-permissions")
+    print("  POST /upload-template")
+    print("  POST /process-document")
+    print("  GET  /download/{document_id}")
     uvicorn.run(app, host="0.0.0.0", port=port)
