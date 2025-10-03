@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Install system dependencies for docx2pdf
-apt-get update
-apt-get install -y libreoffice
-
-# Install Python dependencies
-pip install -r requirements.txt
+# This script is now handled by Dockerfile
+# Docker will install LibreOffice and Python dependencies automatically
+echo "Docker build process will handle all dependencies"

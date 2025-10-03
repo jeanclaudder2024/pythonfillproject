@@ -896,43 +896,17 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert to PDF using docx2pdf with LibreOffice
+        # Convert to PDF using docx2pdf (now works reliably in Docker)
         pdf_success = False
         try:
-            import subprocess
-            import os
-            
-            # Set LibreOffice path for Render/Linux
-            libreoffice_path = "/usr/bin/libreoffice"
-            if os.path.exists(libreoffice_path):
-                # Use LibreOffice directly for conversion
-                cmd = [
-                    libreoffice_path,
-                    "--headless",
-                    "--convert-to", "pdf",
-                    "--outdir", str(outputs_dir),
-                    str(filled_docx_file)
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-                
-                if result.returncode == 0:
-                    # Rename the converted file to match our naming convention
-                    converted_pdf = outputs_dir / f"{document_id}_filled_filled.pdf"
-                    if converted_pdf.exists():
-                        converted_pdf.rename(pdf_file)
-                    pdf_success = True
-                    print(f"PDF conversion successful using LibreOffice")
-                else:
-                    print(f"LibreOffice conversion failed: {result.stderr}")
-            else:
-                # Fallback to docx2pdf
-                from docx2pdf import convert
-                convert(str(filled_docx_file), str(pdf_file))
-                pdf_success = True
-                print(f"PDF conversion successful using docx2pdf")
+            from docx2pdf import convert
+            print(f"Converting {filled_docx_file} to PDF...")
+            convert(str(filled_docx_file), str(pdf_file))
+            pdf_success = True
+            print(f"✅ PDF conversion successful: {pdf_file}")
                 
         except Exception as e:
-            print(f"PDF conversion failed: {e}")
+            print(f"❌ PDF conversion failed: {e}")
             # Create a fallback text file
             with open(txt_file, 'w', encoding='utf-8') as f:
                 f.write(f"Document processed successfully for vessel {vessel_imo}\n")
