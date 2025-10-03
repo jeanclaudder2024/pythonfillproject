@@ -10,3 +10,4 @@ docker run -p 8000:8000 \
   -v $(pwd)/outputs:/app/outputs \
   -e CORS_ORIGINS="*" \
   autofill-api
+
