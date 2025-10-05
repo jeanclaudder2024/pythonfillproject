@@ -1,31 +1,25 @@
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
-# Install system dependencies including LibreOffice
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libreoffice \
+    python3 \
+    python3-pip \
     libreoffice-writer \
     libreoffice-calc \
-    libreoffice-impress \
-    fonts-liberation \
-    fonts-dejavu-core \
-    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install -r requirements.txt
 
-# Copy application code
+# Copy application
 COPY . .
-
-# Create necessary directories
-RUN mkdir -p templates outputs
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["gunicorn", "working_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application
+CMD ["python3", "fixed_templates_fastapi.py"]

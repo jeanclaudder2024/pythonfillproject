@@ -22,6 +22,7 @@ from docx import Document
 import re
 import shutil
 import random
+import subprocess
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -67,6 +68,51 @@ OUTPUTS_DIR = Path("outputs")
 # Ensure directories exist
 FIXED_TEMPLATES_DIR.mkdir(exist_ok=True)
 OUTPUTS_DIR.mkdir(exist_ok=True)
+
+def convert_docx_to_pdf_libreoffice(docx_path, pdf_path):
+    """Convert DOCX to PDF using LibreOffice"""
+    try:
+        # Determine the command based on OS
+        if os.name == 'nt':  # Windows
+            cmd = [
+                'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', os.path.dirname(pdf_path),
+                docx_path
+            ]
+        else:  # Linux/Mac
+            cmd = [
+                'libreoffice',
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', os.path.dirname(pdf_path),
+                docx_path
+            ]
+        
+        print(f"Running LibreOffice command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            expected_pdf = docx_path.replace('.docx', '.pdf')
+            if os.path.exists(expected_pdf):
+                os.rename(expected_pdf, pdf_path)
+                print(f"PDF conversion successful: {pdf_path}")
+                return True
+            else:
+                print(f"Expected PDF file not found: {expected_pdf}")
+                return False
+        else:
+            print(f"LibreOffice conversion failed with return code {result.returncode}")
+            print(f"Error output: {result.stderr}")
+            return False
+        
+    except subprocess.TimeoutExpired:
+        print("LibreOffice conversion timed out")
+        return False
+    except Exception as e:
+        print(f"LibreOffice conversion failed: {e}")
+        return False
 
 def load_templates_config():
     """Load fixed templates configuration"""
@@ -581,42 +627,8 @@ async def process_document(
                 "error": "Could not process the fixed template"
             }, status_code=500)
         
-        # Convert to PDF (try docx2pdf, fallback to reportlab)
-        pdf_success = False
-        try:
-            from docx2pdf import convert
-            convert(str(filled_docx_file), str(pdf_file))
-            pdf_success = True
-            print("PDF conversion successful using docx2pdf")
-        except Exception as e:
-            print(f"docx2pdf failed: {e}, using reportlab fallback")
-            try:
-                # Create a simple PDF with reportlab
-                doc = SimpleDocTemplate(str(pdf_file), pagesize=letter)
-                styles = getSampleStyleSheet()
-                story = []
-                
-                # Add title
-                title = Paragraph(f"Document for Vessel: {vessel_imo}", styles['Title'])
-                story.append(title)
-                story.append(Spacer(1, 12))
-                
-                # Add template info
-                template_name = Paragraph(f"Template: {template_info['name']}", styles['Heading2'])
-                story.append(template_name)
-                story.append(Spacer(1, 12))
-                
-                # Add vessel data
-                for key, value in vessel_data.items():
-                    if key in template_info["placeholders"]:
-                        text = Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal'])
-                        story.append(text)
-                
-                doc.build(story)
-                pdf_success = True
-                print("PDF conversion successful using reportlab")
-            except Exception as e2:
-                print(f"reportlab PDF creation failed: {e2}")
+        # Convert to PDF using LibreOffice
+        pdf_success = convert_docx_to_pdf_libreoffice(str(filled_docx_file), str(pdf_file))
         
         return JSONResponse({
             "success": True,

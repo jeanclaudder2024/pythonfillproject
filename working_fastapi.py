@@ -23,6 +23,27 @@ import re
 import shutil
 import random
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# Load environment variables
+load_dotenv()
+
+# Supabase connection
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+# Initialize Supabase client
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("Connected to Supabase database")
+    except Exception as e:
+        print(f"Failed to connect to Supabase: {e}")
+        print("Falling back to file-based storage")
+else:
+    print("Supabase credentials not found, using file-based storage")
 
 app = FastAPI(title="Working Document Service", version="1.0.0")
 
@@ -95,197 +116,18 @@ def extract_placeholders_from_docx(file_path):
         print(f"Error extracting placeholders: {e}")
         return ["vessel_name", "imo", "vessel_type", "flag", "owner", "current_date"]  # fallback
 
-async def get_real_vessel_data_from_database(vessel_imo):
-    """Fetch real vessel data from database"""
-    try:
-        # TODO: Replace this with actual database query to your vessels table
-        # Example: SELECT * FROM vessels WHERE imo = vessel_imo
-        
-        # For now, return realistic vessel data based on IMO
-        # In production, replace this with actual database query
-        vessel_data = {
-            "vessel_name": "Petroleum Express 529",
-            "imo": vessel_imo,
-            "imo_number": vessel_imo,
-            "vessel_type": "Crude Oil Tanker",
-            "flag": "Malta",
-            "flag_state": "Malta",
-            "owner": "Sample Shipping Company",
-            "vessel_owner": "Sample Shipping Company",
-            "vessel_id": "1",
-            "gross_tonnage": "150,000",
-            "deadweight": "300,000",
-            "length": "330 meters",
-            "width": "60 meters",
-            "draft": "20 meters",
-            "built_year": "2015",
-            "builder": "Samsung Heavy Industries",
-            "engine_type": "MAN B&W 6G70ME-C",
-            "engine_power": "25,000 kW",
-            "speed": "15 knots",
-            "classification": "Lloyd's Register",
-            "insurance": "All Risks",
-            "p&i_club": "North of England",
-            "manager": "V.Ships",
-            "operator": "Petroleum Express Ltd",
-            "charterer": "Shell Trading",
-            "cargo_capacity": "300,000 MT",
-            "tank_capacity": "300,000 cubic meters",
-            "pump_capacity": "10,000 cubic meters/hour",
-            "loading_rate": "8,000 MT/hour",
-            "discharge_rate": "6,000 MT/hour",
-            "last_drydock": "2023-01-15",
-            "next_drydock": "2025-01-15",
-            "last_survey": "2024-06-15",
-            "next_survey": "2025-06-15",
-            "certificates": "Valid",
-            "flag_state_approval": "Valid",
-            "port_state_control": "Clean",
-            "detention_history": "None",
-            "accident_history": "None",
-            "incident_history": "None",
-            "safety_rating": "Excellent",
-            "environmental_rating": "Excellent",
-            "crew_nationality": "Filipino",
-            "crew_size": "25",
-            "master_name": "Captain John Smith",
-            "chief_engineer": "Chief Engineer Michael Brown",
-            "radio_operator": "Radio Operator Sarah Johnson",
-            "satellite_phone": "+870-123-456-789",
-            "email": "master@petroleumexpress.com",
-            "vessel_email": "vessel@petroleumexpress.com",
-            "emergency_contact": "+1-555-123-4567",
-            "port_agent": "Port Agent Singapore",
-            "bunker_supplier": "Bunker Supplier Malaysia",
-            "provisions_supplier": "Provisions Supplier Singapore",
-            "technical_supplier": "Technical Supplier Dubai",
-            "spare_parts_supplier": "Spare Parts Supplier Hamburg",
-            "lubricants_supplier": "Lubricants Supplier Rotterdam",
-            "fresh_water_supplier": "Fresh Water Supplier Gibraltar",
-            "waste_disposal": "Waste Disposal Singapore",
-            "sludge_disposal": "Sludge Disposal Rotterdam",
-            "garbage_disposal": "Garbage Disposal Singapore",
-            "sewage_disposal": "Sewage Disposal Singapore",
-            "ballast_water_treatment": "Ballast Water Treatment System",
-            "exhaust_gas_cleaning": "Exhaust Gas Cleaning System",
-            "energy_efficiency": "Energy Efficiency Management Plan",
-            "carbon_footprint": "Carbon Footprint Monitoring",
-            "fuel_consumption": "150 MT/day",
-            "co2_emissions": "450 MT/day",
-            "nox_emissions": "45 kg/day",
-            "sox_emissions": "15 kg/day",
-            "pm_emissions": "5 kg/day",
-            "noise_levels": "45 dB",
-            "vibration_levels": "Low",
-            "hull_condition": "Excellent",
-            "machinery_condition": "Excellent",
-            "electrical_condition": "Excellent",
-            "navigation_equipment": "Excellent",
-            "communication_equipment": "Excellent",
-            "safety_equipment": "Excellent",
-            "fire_fighting_equipment": "Excellent",
-            "life_saving_equipment": "Excellent",
-            "pollution_prevention_equipment": "Excellent",
-            "cargo_handling_equipment": "Excellent",
-            "deck_equipment": "Excellent",
-            "engine_room_equipment": "Excellent",
-            "bridge_equipment": "Excellent",
-            "galley_equipment": "Excellent",
-            "accommodation_condition": "Excellent",
-            "sanitary_condition": "Excellent",
-            "ventilation_condition": "Excellent",
-            "heating_condition": "Excellent",
-            "cooling_condition": "Excellent",
-            "refrigeration_condition": "Excellent",
-            "water_system_condition": "Excellent",
-            "sewage_system_condition": "Excellent",
-            "bilge_system_condition": "Excellent",
-            "ballast_system_condition": "Excellent",
-            "fuel_system_condition": "Excellent",
-            "lubricating_oil_system_condition": "Excellent",
-            "hydraulic_system_condition": "Excellent",
-            "pneumatic_system_condition": "Excellent",
-            "electrical_system_condition": "Excellent",
-            "automation_system_condition": "Excellent",
-            "control_system_condition": "Excellent",
-            "monitoring_system_condition": "Excellent",
-            "alarm_system_condition": "Excellent",
-            "protection_system_condition": "Excellent",
-            "emergency_system_condition": "Excellent",
-            "backup_system_condition": "Excellent",
-            "redundant_system_condition": "Excellent",
-            "spare_parts_inventory": "Complete",
-            "tools_inventory": "Complete",
-            "consumables_inventory": "Complete",
-            "chemicals_inventory": "Complete",
-            "lubricants_inventory": "Complete",
-            "fuel_inventory": "Complete",
-            "fresh_water_inventory": "Complete",
-            "provisions_inventory": "Complete",
-            "medical_supplies_inventory": "Complete",
-            "safety_equipment_inventory": "Complete",
-            "fire_fighting_equipment_inventory": "Complete",
-            "life_saving_equipment_inventory": "Complete",
-            "pollution_prevention_equipment_inventory": "Complete",
-            "cargo_handling_equipment_inventory": "Complete",
-            "deck_equipment_inventory": "Complete",
-            "engine_room_equipment_inventory": "Complete",
-            "bridge_equipment_inventory": "Complete",
-            "galley_equipment_inventory": "Complete",
-            "accommodation_equipment_inventory": "Complete",
-            "sanitary_equipment_inventory": "Complete",
-            "ventilation_equipment_inventory": "Complete",
-            "heating_equipment_inventory": "Complete",
-            "cooling_equipment_inventory": "Complete",
-            "refrigeration_equipment_inventory": "Complete",
-            "water_system_equipment_inventory": "Complete",
-            "sewage_system_equipment_inventory": "Complete",
-            "bilge_system_equipment_inventory": "Complete",
-            "ballast_system_equipment_inventory": "Complete",
-            "fuel_system_equipment_inventory": "Complete",
-            "lubricating_oil_system_equipment_inventory": "Complete",
-            "hydraulic_system_equipment_inventory": "Complete",
-            "pneumatic_system_equipment_inventory": "Complete",
-            "electrical_system_equipment_inventory": "Complete",
-            "automation_system_equipment_inventory": "Complete",
-            "control_system_equipment_inventory": "Complete",
-            "monitoring_system_equipment_inventory": "Complete",
-            "alarm_system_equipment_inventory": "Complete",
-            "protection_system_equipment_inventory": "Complete",
-            "emergency_system_equipment_inventory": "Complete",
-            "backup_system_equipment_inventory": "Complete",
-            "redundant_system_equipment_inventory": "Complete"
-        }
-        
-        return vessel_data
-        
-    except Exception as e:
-        print(f"Error fetching vessel data from database: {e}")
-        # Return fallback data if database query fails
-        return {
-            "vessel_name": "Vessel Name",
-            "imo": vessel_imo,
-            "imo_number": vessel_imo,
-            "vessel_type": "Tanker",
-            "flag": "Flag State",
-            "flag_state": "Flag State",
-            "owner": "Owner",
-            "vessel_owner": "Owner",
-            "vessel_id": "1"
-        }
-
-def generate_professional_data_for_placeholder(placeholder):
-    """Generate professional realistic data for missing placeholders"""
+def generate_realistic_data_for_placeholder(placeholder):
+    """Generate realistic data for missing placeholders"""
     import random
     from datetime import datetime, timedelta
     
-    # Define professional realistic data patterns
-    professional_data = {
-        # Banking - PROFESSIONAL DATA
+    # Define realistic data patterns
+    realistic_data = {
+        # Banking
         'seller_bank_account_no': f"{random.randint(1000000000, 9999999999)}",
-        'seller_bank_swift': f"{random.choice(['CHASUS33', 'BOFAUS3N', 'CITIUS33', 'DEUTUS33', 'HSBCUS33'])}",
-        'seller_bank_name': random.choice(['Chase Bank', 'Bank of America', 'Citibank', 'Deutsche Bank', 'HSBC']),
-        'seller_bank_address': f"{random.randint(100, 9999)} {random.choice(['Main St', 'Broadway', 'Wall St', 'Park Ave', 'Financial District'])}, New York, NY",
+        'seller_bank_swift': f"{random.choice(['CHASUS33', 'BOFAUS3N', 'CITIUS33', 'DEUTUS33'])}",
+        'seller_bank_name': random.choice(['Chase Bank', 'Bank of America', 'Citibank', 'Deutsche Bank']),
+        'seller_bank_address': f"{random.randint(100, 9999)} {random.choice(['Main St', 'Broadway', 'Wall St', 'Park Ave'])}, New York, NY",
         'seller_bank_officer_name': f"{random.choice(['John', 'Sarah', 'Michael', 'Lisa'])} {random.choice(['Smith', 'Johnson', 'Williams', 'Brown'])}",
         'seller_bank_officer_mobile': f"+1-{random.randint(200, 999)}-{random.randint(200, 999)}-{random.randint(1000, 9999)}",
         'confirming_bank_account_number': f"{random.randint(1000000000, 9999999999)}",
@@ -414,67 +256,94 @@ def generate_professional_data_for_placeholder(placeholder):
         'default': f"Sample {placeholder.replace('_', ' ').title()}"
     }
     
-     # Return professional data or default
-     return professional_data.get(placeholder.lower(), f"Professional {placeholder.replace('_', ' ').title()}")
+    # Return realistic data or default
+    return realistic_data.get(placeholder.lower(), realistic_data['default'])
 
 def fill_word_template(template_path, output_path, vessel_data):
     """Fill a Word template with vessel data"""
     try:
+        print(f"Starting template processing: {template_path} -> {output_path}")
+        
         # Copy template to output path
         shutil.copy2(template_path, output_path)
+        print(f"Template copied successfully")
         
         # Open the document
         doc = Document(output_path)
+        print(f"Document opened successfully, processing {len(doc.paragraphs)} paragraphs and {len(doc.tables)} tables")
         
         # Replace placeholders in paragraphs
-        for paragraph in doc.paragraphs:
-            text = paragraph.text
-            original_text = text
-            for placeholder, value in vessel_data.items():
-                # Replace both {placeholder} and {placeholder} formats
-                text = text.replace(f"{{{placeholder}}}", str(value))
-                text = text.replace(f"{{{{{placeholder}}}}}", str(value))  # Handle double braces
-            
-            # Find any remaining placeholders and replace with simple data
-            remaining_placeholders = re.findall(r'\{([^}]+)\}', text)
-            for placeholder in remaining_placeholders:
-                 professional_value = generate_professional_data_for_placeholder(placeholder)
-                 text = text.replace(f"{{{placeholder}}}", str(professional_value))
-                 print(f"Generated professional data for missing placeholder '{placeholder}': {professional_value}")
-            
-            if text != original_text:
-                paragraph.text = text
-                print(f"Replaced placeholders in paragraph: {original_text[:50]}... -> {text[:50]}...")
+        paragraphs_processed = 0
+        for i, paragraph in enumerate(doc.paragraphs):
+            try:
+                text = paragraph.text
+                original_text = text
+                for placeholder, value in vessel_data.items():
+                    # Replace both {placeholder} and {placeholder} formats
+                    text = text.replace(f"{{{placeholder}}}", str(value))
+                    text = text.replace(f"{{{{{placeholder}}}}}", str(value))  # Handle double braces
+                
+                # Find any remaining placeholders and replace with realistic data
+                remaining_placeholders = re.findall(r'\{([^}]+)\}', text)
+                for placeholder in remaining_placeholders:
+                    realistic_value = generate_realistic_data_for_placeholder(placeholder)
+                    text = text.replace(f"{{{placeholder}}}", str(realistic_value))
+                    print(f"Generated realistic data for missing placeholder '{placeholder}': {realistic_value}")
+                
+                if text != original_text:
+                    paragraph.text = text
+                    paragraphs_processed += 1
+                    print(f"Replaced placeholders in paragraph {i}: {original_text[:50]}... -> {text[:50]}...")
+            except Exception as e:
+                print(f"Error processing paragraph {i}: {e}")
+                continue
+        
+        print(f"Processed {paragraphs_processed} paragraphs with replacements")
         
         # Replace placeholders in tables
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for paragraph in cell.paragraphs:
-                        text = paragraph.text
-                        original_text = text
-                        for placeholder, value in vessel_data.items():
-                            # Replace both {placeholder} and {placeholder} formats
-                            text = text.replace(f"{{{placeholder}}}", str(value))
-                            text = text.replace(f"{{{{{placeholder}}}}}", str(value))  # Handle double braces
-                        
-                        # Find any remaining placeholders and replace with simple data
-                        remaining_placeholders = re.findall(r'\{([^}]+)\}', text)
-                        for placeholder in remaining_placeholders:
-                 professional_value = generate_professional_data_for_placeholder(placeholder)
-                 text = text.replace(f"{{{placeholder}}}", str(professional_value))
-                 print(f"Generated professional data for missing placeholder '{placeholder}': {professional_value}")
-                        
-                        if text != original_text:
-                            paragraph.text = text
-                            print(f"Replaced placeholders in table cell: {original_text[:50]}... -> {text[:50]}...")
+        tables_processed = 0
+        for table_idx, table in enumerate(doc.tables):
+            try:
+                for row_idx, row in enumerate(table.rows):
+                    for cell_idx, cell in enumerate(row.cells):
+                        for para_idx, paragraph in enumerate(cell.paragraphs):
+                            try:
+                                text = paragraph.text
+                                original_text = text
+                                for placeholder, value in vessel_data.items():
+                                    # Replace both {placeholder} and {placeholder} formats
+                                    text = text.replace(f"{{{placeholder}}}", str(value))
+                                    text = text.replace(f"{{{{{placeholder}}}}}", str(value))  # Handle double braces
+                                
+                                # Find any remaining placeholders and replace with realistic data
+                                remaining_placeholders = re.findall(r'\{([^}]+)\}', text)
+                                for placeholder in remaining_placeholders:
+                                    realistic_value = generate_realistic_data_for_placeholder(placeholder)
+                                    text = text.replace(f"{{{placeholder}}}", str(realistic_value))
+                                    print(f"Generated realistic data for missing placeholder '{placeholder}': {realistic_value}")
+                                
+                                if text != original_text:
+                                    paragraph.text = text
+                                    tables_processed += 1
+                                    print(f"Replaced placeholders in table {table_idx}, row {row_idx}, cell {cell_idx}: {original_text[:50]}... -> {text[:50]}...")
+                            except Exception as e:
+                                print(f"Error processing table cell {table_idx}.{row_idx}.{cell_idx}.{para_idx}: {e}")
+                                continue
+            except Exception as e:
+                print(f"Error processing table {table_idx}: {e}")
+                continue
+        
+        print(f"Processed {tables_processed} table cells with replacements")
         
         # Save the document
         doc.save(output_path)
         print(f"Template filled successfully: {output_path}")
         return True
+        
     except Exception as e:
-        print(f"Error filling template: {e}")
+        print(f"CRITICAL ERROR filling template: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 @app.get("/")
@@ -485,138 +354,21 @@ async def root():
 async def health():
     return {"status": "healthy", "service": "document-processing"}
 
-@app.get("/test-libreoffice")
-async def test_libreoffice():
-    """Test if LibreOffice is working properly"""
-    try:
-        import subprocess
-        result = subprocess.run(['libreoffice', '--version'], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            return {
-                "status": "success",
-                "libreoffice_version": result.stdout.strip(),
-                "message": "LibreOffice is working properly"
-            }
-        else:
-            return {
-                "status": "error",
-                "message": f"LibreOffice test failed: {result.stderr}",
-                "return_code": result.returncode
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"LibreOffice test failed: {str(e)}"
-        }
-
-@app.get("/test-conversion")
-async def test_conversion():
-    """Test Word to PDF conversion with a sample document"""
-    try:
-        from docx import Document
-        from pathlib import Path
-        import tempfile
-        
-        # Create a test Word document
-        doc = Document()
-        doc.add_heading('Test Document', 0)
-        doc.add_paragraph('This is a test document for PDF conversion.')
-        doc.add_paragraph('Vessel Name: {vessel_name}')
-        doc.add_paragraph('IMO: {imo}')
-        
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
-            doc.save(tmp_file.name)
-            temp_docx = Path(tmp_file.name)
-        
-        # Try conversion
-        outputs_dir = Path("outputs")
-        outputs_dir.mkdir(exist_ok=True)
-        
-        test_pdf = outputs_dir / "test_conversion.pdf"
-        
-        # Try LibreOffice conversion (primary method for Docker)
-        try:
-            import subprocess
-            cmd = [
-                'libreoffice',
-                '--headless',
-                '--convert-to', 'pdf',
-                '--outdir', str(outputs_dir),
-                str(temp_docx)
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            
-            if result.returncode == 0:
-                # Clean up temp file
-                temp_docx.unlink()
-                return {
-                    "status": "success",
-                    "message": "Word to PDF conversion working with LibreOffice in Docker",
-                    "libreoffice_output": result.stdout,
-                    "test_pdf_created": test_pdf.exists(),
-                    "method": "LibreOffice (Docker compatible)"
-                }
-            else:
-                temp_docx.unlink()
-                return {
-                    "status": "error",
-                    "message": f"LibreOffice conversion failed: {result.stderr}",
-                    "return_code": result.returncode
-                }
-        except Exception as e:
-            temp_docx.unlink()
-            return {
-                "status": "error",
-                "message": f"LibreOffice conversion test failed: {str(e)}"
-            }
-            
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Test setup failed: {str(e)}"
-        }
-
-@app.get("/test-download")
-async def test_download():
-    """Test download functionality with a sample PDF"""
-    try:
-        from reportlab.pdfgen import canvas
-        from pathlib import Path
-        import tempfile
-        
-        # Create a test PDF
-        outputs_dir = Path("outputs")
-        outputs_dir.mkdir(exist_ok=True)
-        
-        test_pdf_path = outputs_dir / "test_download.pdf"
-        
-        # Create a simple PDF
-        c = canvas.Canvas(str(test_pdf_path))
-        c.drawString(100, 750, "Test PDF Download")
-        c.drawString(100, 700, "This is a test PDF for download functionality.")
-        c.drawString(100, 650, f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        c.save()
-        
-        return {
-            "status": "success",
-            "message": "Test PDF created successfully",
-            "file_path": str(test_pdf_path),
-            "file_exists": test_pdf_path.exists(),
-            "download_url": f"/download/test-download-id"
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Test download failed: {str(e)}"
-        }
-
 @app.get("/templates")
 async def get_templates():
     """Get list of available templates"""
-    # Return actual stored templates
-    return templates_storage
+    try:
+        if supabase:
+            # Get templates from database
+            result = supabase.table("document_templates").select("*").eq("is_active", True).execute()
+            return result.data
+        else:
+            # Fallback to file storage
+            return templates_storage
+    except Exception as e:
+        print(f"Error fetching templates from database: {e}")
+        # Fallback to file storage
+        return templates_storage
 
 @app.get("/vessels")
 async def get_vessels():
@@ -637,12 +389,95 @@ async def get_vessels():
         }
     ]
 
+@app.post("/upload-template")
+async def upload_template(
+    name: str = Form(...),
+    description: str = Form(...),
+    template_file: UploadFile = File(...)
+):
+    """Upload a new document template"""
+    try:
+        # Read file content
+        content = await template_file.read()
+        
+        # Extract placeholders from the uploaded Word document
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_file:
+            temp_file.write(content)
+            temp_file.flush()
+            actual_placeholders = extract_placeholders_from_docx(temp_file.name)
+            os.unlink(temp_file.name)
+
+        if supabase:
+            # Store in database
+            template_data = {
+                "name": name,
+                "description": description,
+                "template_file": content,  # Store as BYTEA
+                "file_name": template_file.filename,
+                "file_size": len(content),
+                "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "placeholders": actual_placeholders,
+                "placeholder_mappings": {},
+                "is_active": True
+            }
+            
+            result = supabase.table("document_templates").insert(template_data).execute()
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Template uploaded to database successfully",
+                "template": result.data[0]
+            })
+        else:
+            # Fallback to file storage
+            template_id = str(uuid.uuid4())
+            
+            # Create templates directory if it doesn't exist
+            templates_dir = Path("templates")
+            templates_dir.mkdir(exist_ok=True)
+
+            # Save the uploaded file
+            file_extension = Path(template_file.filename).suffix
+            saved_filename = f"{template_id}{file_extension}"
+            file_path = templates_dir / saved_filename
+
+            with open(file_path, "wb") as buffer:
+                buffer.write(content)
+
+            # Create template info
+            template_info = {
+                "id": template_id,
+                "name": name,
+                "description": description,
+                "file_name": template_file.filename,
+                "file_size": len(content),
+                "placeholders": actual_placeholders,
+                "is_active": True,
+                "created_at": "2025-01-30T00:00:00Z"
+            }
+
+            # Add to storage
+            templates_storage.append(template_info)
+            save_templates()
+
+            return JSONResponse({
+                "success": True,
+                "message": "Template uploaded to file storage successfully",
+                "template": template_info
+            })
+
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Template upload failed: {str(e)}",
+            "error": str(e)
+        }, status_code=500)
 
 @app.post("/process-document")
 async def process_document(
     template_id: str = Form(...),
     vessel_imo: str = Form(...),
-    template_file: UploadFile = File(None)  # Make optional since we'll use stored template
+    template_file: UploadFile = File(...)
 ):
     """Process a document template with vessel data"""
     try:
@@ -653,416 +488,43 @@ async def process_document(
         outputs_dir = Path("outputs")
         outputs_dir.mkdir(exist_ok=True)
         
-        # Find the template in storage
+        # Find the template in database or storage
         template_info = None
-        for template in templates_storage:
-            if template["id"] == template_id:
-                template_info = template
-                break
+        if supabase:
+            try:
+                result = supabase.table("document_templates").select("*").eq("id", template_id).execute()
+                if result.data:
+                    template_info = result.data[0]
+            except Exception as e:
+                print(f"Error fetching template from database: {e}")
         
+        if not template_info:
+            # Fallback to file storage
+            for template in templates_storage:
+                if template["id"] == template_id:
+                    template_info = template
+                    break
+
         if not template_info:
             return JSONResponse({
                 "success": False,
                 "message": "Template not found",
-                "error": "Template ID not found in storage"
+                "error": "Template ID not found in database or storage"
             }, status_code=404)
         
-        # Get real vessel data from database
-        vessel_data = await get_real_vessel_data_from_database(vessel_imo)
-        
-        # Add additional professional data
-        vessel_data.update({
-            "current_date": datetime.now().strftime('%Y-%m-%d'),
-            
-            # Professional ICPO Fields - REALISTIC DATA
-            "icpo_number": f"ICPO-{datetime.now().year}-{random.randint(1000, 9999)}",
-            "icpo_date": datetime.now().strftime('%Y-%m-%d'),
-            "icpo_validity": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
-            "icpo_amount": f"USD {random.randint(1000000, 10000000):,}",
-            "icpo_currency": "USD",
-            "icpo_terms": "LC at sight",
-            "icpo_bank": "HSBC Bank",
-            "icpo_bank_address": "1 Centenary Square, Birmingham, UK",
-            "icpo_swift": "HBUKGB4B",
-            "icpo_account": f"{random.randint(1000000000, 9999999999)}",
-            "icpo_beneficiary": "Sample Trading Company Ltd",
-            "icpo_beneficiary_address": "123 Marina Bay, Singapore",
-            "icpo_beneficiary_swift": "DBSBSGSG",
-            "icpo_beneficiary_account": f"{random.randint(1000000000, 9999999999)}",
-            "icpo_commodity": "Crude Oil",
-            "icpo_quantity": f"{random.randint(10000, 100000)} MT",
-            "icpo_specification": "API 35-40, Sulfur < 0.5%",
-            "icpo_origin": "Malaysia",
-            "icpo_destination": "Singapore",
-            "icpo_loading_port": "Port Klang, Malaysia",
-            "icpo_discharge_port": "Singapore Port",
-            "icpo_loading_date": (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d'),
-            "icpo_discharge_date": (datetime.now() + timedelta(days=25)).strftime('%Y-%m-%d'),
-            "icpo_price": f"USD {random.randint(50, 100)}.00 per MT",
-            "icpo_total_value": f"USD {random.randint(5000000, 50000000):,}",
-            "icpo_payment_terms": "LC at sight",
-            "icpo_delivery_terms": "FOB",
-            "icpo_inspection": "SGS",
-            "icpo_insurance": "All Risks",
-            "icpo_force_majeure": "Standard Force Majeure Clause",
-            "icpo_arbitration": "Singapore International Arbitration Centre",
-            "icpo_law": "Singapore Law",
-            "icpo_governing_law": "Singapore Law",
-            "icpo_jurisdiction": "Singapore Courts",
-            "icpo_notice_period": "30 days",
-            "icpo_penalty": "0.5% per day",
-            "icpo_bonus": "0.1% for early delivery",
-            "icpo_commission": "2%",
-            "icpo_brokerage": "1%",
-            "icpo_other_charges": "USD 10,000",
-            "icpo_total_charges": "USD 15,000",
-            "icpo_net_amount": f"USD {random.randint(5000000, 50000000):,}",
-            "icpo_remarks": "Subject to final inspection and approval",
-            "icpo_conditions": "Standard trading conditions apply",
-            "icpo_amendments": "No amendments allowed without written consent",
-            "icpo_cancellation": "Subject to 48 hours notice",
-            "icpo_extension": "May be extended by mutual agreement",
-            "icpo_confirmation": "Subject to buyer's confirmation",
-            "icpo_acceptance": "Subject to seller's acceptance",
-            "icpo_approval": "Subject to management approval",
-            "icpo_authorization": "Subject to board authorization",
-            "icpo_ratification": "Subject to board ratification",
-            "icpo_endorsement": "Subject to bank endorsement",
-            "icpo_guarantee": "Bank guarantee required",
-            "icpo_security": "Security deposit required",
-            "icpo_collateral": "Collateral required",
-            "icpo_margin": "Margin call possible",
-            "icpo_hedge": "Hedge position required",
-            "icpo_risk": "Risk management required",
-            "icpo_compliance": "Compliance check required",
-            "icpo_kyc": "KYC documentation required",
-            "icpo_aml": "AML check required",
-            "icpo_sanctions": "Sanctions check required",
-            "icpo_embargo": "Embargo check required",
-            "icpo_restrictions": "No restrictions apply",
-            "icpo_limitations": "Standard limitations apply",
-            "icpo_exclusions": "Standard exclusions apply",
-            "icpo_warranties": "Standard warranties apply",
-            "icpo_representations": "Standard representations apply",
-            "icpo_covenants": "Standard covenants apply",
-            "icpo_undertakings": "Standard undertakings apply",
-            "icpo_obligations": "Standard obligations apply",
-            "icpo_responsibilities": "Standard responsibilities apply",
-            "icpo_liabilities": "Standard liabilities apply",
-            "icpo_limitations_liability": "Standard liability limitations apply",
-            "icpo_indemnification": "Standard indemnification apply",
-            "icpo_hold_harmless": "Standard hold harmless apply",
-            "icpo_release": "Standard release apply",
-            "icpo_discharge": "Standard discharge apply",
-            "icpo_waiver": "Standard waiver apply",
-            "icpo_estoppel": "Standard estoppel apply",
-            "icpo_acquiescence": "Standard acquiescence apply",
-            "icpo_ratification_2": "Standard ratification apply",
-            "icpo_confirmation_2": "Standard confirmation apply",
-            "icpo_acknowledgment": "Standard acknowledgment apply",
-            "icpo_admission": "Standard admission apply",
-            "icpo_concession": "Standard concession apply",
-            "icpo_agreement": "Standard agreement apply",
-            "icpo_understanding": "Standard understanding apply",
-            "icpo_arrangement": "Standard arrangement apply",
-            "icpo_settlement": "Standard settlement apply",
-            "icpo_compromise": "Standard compromise apply",
-            "icpo_accord": "Standard accord apply",
-            "icpo_concord": "Standard concord apply",
-            "icpo_harmony": "Standard harmony apply",
-            "icpo_unity": "Standard unity apply",
-            "icpo_consensus": "Standard consensus apply",
-            "icpo_unanimity": "Standard unanimity apply",
-            "icpo_consent": "Standard consent apply",
-            "icpo_approval_2": "Standard approval apply",
-            "icpo_authorization_2": "Standard authorization apply",
-            "icpo_permission": "Standard permission apply",
-            "icpo_license": "Standard license apply",
-            "icpo_franchise": "Standard franchise apply",
-            "icpo_concession_2": "Standard concession apply",
-            "icpo_privilege": "Standard privilege apply",
-            "icpo_immunity": "Standard immunity apply",
-            "icpo_exemption": "Standard exemption apply",
-            "icpo_dispensation": "Standard dispensation apply",
-            "icpo_relief": "Standard relief apply",
-            "icpo_remission": "Standard remission apply",
-            "icpo_absolution": "Standard absolution apply",
-            "icpo_pardon": "Standard pardon apply",
-            "icpo_clemency": "Standard clemency apply",
-            "icpo_mercy": "Standard mercy apply",
-            "icpo_grace": "Standard grace apply",
-            "icpo_favor": "Standard favor apply",
-            "icpo_benefit": "Standard benefit apply",
-            "icpo_advantage": "Standard advantage apply",
-            "icpo_profit": "Standard profit apply",
-            "icpo_gain": "Standard gain apply",
-            "icpo_earnings": "Standard earnings apply",
-            "icpo_income": "Standard income apply",
-            "icpo_revenue": "Standard revenue apply",
-            "icpo_proceeds": "Standard proceeds apply",
-            "icpo_returns": "Standard returns apply",
-            "icpo_yield": "Standard yield apply",
-            "icpo_dividend": "Standard dividend apply",
-            "icpo_interest": "Standard interest apply",
-            "icpo_royalty": "Standard royalty apply",
-            "icpo_commission_2": "Standard commission apply",
-            "icpo_fee": "Standard fee apply",
-            "icpo_charge": "Standard charge apply",
-            "icpo_cost": "Standard cost apply",
-            "icpo_expense": "Standard expense apply",
-            "icpo_outlay": "Standard outlay apply",
-            "icpo_disbursement": "Standard disbursement apply",
-            "icpo_payment": "Standard payment apply",
-            "icpo_remittance": "Standard remittance apply",
-            "icpo_transfer": "Standard transfer apply",
-            "icpo_transmission": "Standard transmission apply",
-            "icpo_delivery": "Standard delivery apply",
-            "icpo_shipment": "Standard shipment apply",
-            "icpo_dispatch": "Standard dispatch apply",
-            "icpo_consignment": "Standard consignment apply",
-            "icpo_cargo": "Standard cargo apply",
-            "icpo_freight": "Standard freight apply",
-            "icpo_carriage": "Standard carriage apply",
-            "icpo_transport": "Standard transport apply",
-            "icpo_conveyance": "Standard conveyance apply",
-            "icpo_transit": "Standard transit apply",
-            "icpo_passage": "Standard passage apply",
-            "icpo_voyage": "Standard voyage apply",
-            "icpo_journey": "Standard journey apply",
-            "icpo_trip": "Standard trip apply",
-            "icpo_expedition": "Standard expedition apply",
-            "icpo_mission": "Standard mission apply",
-            "icpo_operation": "Standard operation apply",
-            "icpo_undertaking_2": "Standard undertaking apply",
-            "icpo_enterprise": "Standard enterprise apply",
-            "icpo_venture": "Standard venture apply",
-            "icpo_project": "Standard project apply",
-            "icpo_scheme": "Standard scheme apply",
-            "icpo_plan": "Standard plan apply",
-            "icpo_program": "Standard program apply",
-            "icpo_campaign": "Standard campaign apply",
-            "icpo_initiative": "Standard initiative apply",
-            "icpo_effort": "Standard effort apply",
-            "icpo_endeavor": "Standard endeavor apply",
-            "icpo_attempt": "Standard attempt apply",
-            "icpo_trial": "Standard trial apply",
-            "icpo_experiment": "Standard experiment apply",
-            "icpo_test": "Standard test apply",
-            "icpo_examination": "Standard examination apply",
-            "icpo_inspection_2": "Standard inspection apply",
-            "icpo_review": "Standard review apply",
-            "icpo_audit": "Standard audit apply",
-            "icpo_assessment": "Standard assessment apply",
-            "icpo_evaluation": "Standard evaluation apply",
-            "icpo_analysis": "Standard analysis apply",
-            "icpo_study": "Standard study apply",
-            "icpo_research": "Standard research apply",
-            "icpo_investigation": "Standard investigation apply",
-            "icpo_inquiry": "Standard inquiry apply",
-            "icpo_question": "Standard question apply",
-            "icpo_query": "Standard query apply",
-            "icpo_request": "Standard request apply",
-            "icpo_demand": "Standard demand apply",
-            "icpo_requirement": "Standard requirement apply",
-            "icpo_necessity": "Standard necessity apply",
-            "icpo_need": "Standard need apply",
-            "icpo_want": "Standard want apply",
-            "icpo_desire": "Standard desire apply",
-            "icpo_wish": "Standard wish apply",
-            "icpo_hope": "Standard hope apply",
-            "icpo_expectation": "Standard expectation apply",
-            "icpo_anticipation": "Standard anticipation apply",
-            "icpo_forecast": "Standard forecast apply",
-            "icpo_prediction": "Standard prediction apply",
-            "icpo_projection": "Standard projection apply",
-            "icpo_estimate": "Standard estimate apply",
-            "icpo_calculation": "Standard calculation apply",
-            "icpo_computation": "Standard computation apply",
-            "icpo_measurement": "Standard measurement apply",
-            "icpo_quantification": "Standard quantification apply",
-            "icpo_valuation": "Standard valuation apply",
-            "icpo_appraisal": "Standard appraisal apply",
-            "icpo_estimation": "Standard estimation apply",
-            "icpo_assessment_2": "Standard assessment apply",
-            "icpo_judgment": "Standard judgment apply",
-            "icpo_opinion": "Standard opinion apply",
-            "icpo_view": "Standard view apply",
-            "icpo_perspective": "Standard perspective apply",
-            "icpo_standpoint": "Standard standpoint apply",
-            "icpo_position": "Standard position apply",
-            "icpo_stance": "Standard stance apply",
-            "icpo_attitude": "Standard attitude apply",
-            "icpo_approach": "Standard approach apply",
-            "icpo_method": "Standard method apply",
-            "icpo_technique": "Standard technique apply",
-            "icpo_procedure": "Standard procedure apply",
-            "icpo_process": "Standard process apply",
-            "icpo_system": "Standard system apply",
-            "icpo_framework": "Standard framework apply",
-            "icpo_structure": "Standard structure apply",
-            "icpo_organization": "Standard organization apply",
-            "icpo_arrangement_2": "Standard arrangement apply",
-            "icpo_setup": "Standard setup apply",
-            "icpo_configuration": "Standard configuration apply",
-            "icpo_layout": "Standard layout apply",
-            "icpo_design": "Standard design apply",
-            "icpo_plan_2": "Standard plan apply",
-            "icpo_scheme_2": "Standard scheme apply",
-            "icpo_strategy": "Standard strategy apply",
-            "icpo_tactic": "Standard tactic apply",
-            "icpo_approach_2": "Standard approach apply",
-            "icpo_method_2": "Standard method apply",
-            "icpo_technique_2": "Standard technique apply",
-            "icpo_procedure_2": "Standard procedure apply",
-            "icpo_process_2": "Standard process apply",
-            "icpo_system_2": "Standard system apply",
-            "icpo_framework_2": "Standard framework apply",
-            "icpo_structure_2": "Standard structure apply",
-            "icpo_organization_2": "Standard organization apply",
-            "icpo_arrangement_3": "Standard arrangement apply",
-            "icpo_setup_2": "Standard setup apply",
-            "icpo_configuration_2": "Standard configuration apply",
-            "icpo_layout_2": "Standard layout apply",
-            "icpo_design_2": "Standard design apply",
-            "icpo_plan_3": "Standard plan apply",
-            "icpo_scheme_3": "Standard scheme apply",
-            "icpo_strategy_2": "Standard strategy apply",
-            "icpo_tactic_2": "Standard tactic apply",
-            "icpo_approach_3": "Standard approach apply",
-            "icpo_method_3": "Standard method apply",
-            "icpo_technique_3": "Standard technique apply",
-            "icpo_procedure_3": "Standard procedure apply",
-            "icpo_process_3": "Standard process apply",
-            "icpo_system_3": "Standard system apply",
-            "icpo_framework_3": "Standard framework apply",
-            "icpo_structure_3": "Standard structure apply",
-            "icpo_organization_3": "Standard organization apply",
-            "icpo_arrangement_4": "Standard arrangement apply",
-            "icpo_setup_3": "Standard setup apply",
-            "icpo_configuration_3": "Standard configuration apply",
-            "icpo_layout_3": "Standard layout apply",
-            "icpo_design_3": "Standard design apply",
-            "icpo_plan_4": "Standard plan apply",
-            "icpo_scheme_4": "Standard scheme apply",
-            "icpo_strategy_3": "Standard strategy apply",
-            "icpo_tactic_3": "Standard tactic apply",
-            "icpo_approach_4": "Standard approach apply",
-            "icpo_method_4": "Standard method apply",
-            "icpo_technique_4": "Standard technique apply",
-            "icpo_procedure_4": "Standard procedure apply",
-            "icpo_process_4": "Standard process apply",
-            "icpo_system_4": "Standard system apply",
-            "icpo_framework_4": "Standard framework apply",
-            "icpo_structure_4": "Standard structure apply",
-            "icpo_organization_4": "Standard organization apply",
-            "icpo_arrangement_5": "Standard arrangement apply",
-            "icpo_setup_4": "Standard setup apply",
-            "icpo_configuration_4": "Standard configuration apply",
-            "icpo_layout_4": "Standard layout apply",
-            "icpo_design_4": "Standard design apply",
-            "icpo_plan_5": "Standard plan apply",
-            "icpo_scheme_5": "Standard scheme apply",
-            "icpo_strategy_4": "Standard strategy apply",
-            "icpo_tactic_4": "Standard tactic apply",
-            "icpo_approach_5": "Standard approach apply",
-            "icpo_method_5": "Standard method apply",
-            "icpo_technique_5": "Standard technique apply",
-            "icpo_procedure_5": "Standard procedure apply",
-            "icpo_process_5": "Standard process apply",
-            "icpo_system_5": "Standard system apply",
-            "icpo_framework_5": "Standard framework apply",
-            "icpo_structure_5": "Standard structure apply",
-            "icpo_organization_5": "Standard organization apply",
-            "icpo_arrangement_6": "Standard arrangement apply",
-            "icpo_setup_5": "Standard setup apply",
-            "icpo_configuration_5": "Standard configuration apply",
-            "icpo_layout_5": "Standard layout apply",
-            "icpo_design_5": "Standard design apply",
-            "icpo_plan_6": "Standard plan apply",
-            "icpo_scheme_6": "Standard scheme apply",
-            "icpo_strategy_5": "Standard strategy apply",
-            "icpo_tactic_5": "Standard tactic apply",
-            "icpo_approach_6": "Standard approach apply",
-            "icpo_method_6": "Standard method apply",
-            "icpo_technique_6": "Standard technique apply",
-            "icpo_procedure_6": "Standard procedure apply",
-            "icpo_process_6": "Standard process apply",
-            "icpo_system_6": "Standard system apply",
-            "icpo_framework_6": "Standard framework apply",
-            "icpo_structure_6": "Standard structure apply",
-            "icpo_organization_6": "Standard organization apply",
-            "icpo_arrangement_7": "Standard arrangement apply",
-            "icpo_setup_6": "Standard setup apply",
-            "icpo_configuration_6": "Standard configuration apply",
-            "icpo_layout_6": "Standard layout apply",
-            "icpo_design_6": "Standard design apply",
-            "icpo_plan_7": "Standard plan apply",
-            "icpo_scheme_7": "Standard scheme apply",
-            "icpo_strategy_6": "Standard strategy apply",
-            "icpo_tactic_6": "Standard tactic apply",
-            "icpo_approach_7": "Standard approach apply",
-            "icpo_method_7": "Standard method apply",
-            "icpo_technique_7": "Standard technique apply",
-            "icpo_procedure_7": "Standard procedure apply",
-            "icpo_process_7": "Standard process apply",
-            "icpo_system_7": "Standard system apply",
-            "icpo_framework_7": "Standard framework apply",
-            "icpo_structure_7": "Standard structure apply",
-            "icpo_organization_7": "Standard organization apply",
-            "icpo_arrangement_8": "Standard arrangement apply",
-            "icpo_setup_7": "Standard setup apply",
-            "icpo_configuration_7": "Standard configuration apply",
-            "icpo_layout_7": "Standard layout apply",
-            "icpo_design_7": "Standard design apply",
-            "icpo_plan_8": "Standard plan apply",
-            "icpo_scheme_8": "Standard scheme apply",
-            "icpo_strategy_7": "Standard strategy apply",
-            "icpo_tactic_7": "Standard tactic apply",
-            "icpo_approach_8": "Standard approach apply",
-            "icpo_method_8": "Standard method apply",
-            "icpo_technique_8": "Standard technique apply",
-            "icpo_procedure_8": "Standard procedure apply",
-            "icpo_process_8": "Standard process apply",
-            "icpo_system_8": "Standard system apply",
-            "icpo_framework_8": "Standard framework apply",
-            "icpo_structure_8": "Standard structure apply",
-            "icpo_organization_8": "Standard organization apply",
-            "icpo_arrangement_9": "Standard arrangement apply",
-            "icpo_setup_8": "Standard setup apply",
-            "icpo_configuration_8": "Standard configuration apply",
-            "icpo_layout_8": "Standard layout apply",
-            "icpo_design_8": "Standard design apply",
-            "icpo_plan_9": "Standard plan apply",
-            "icpo_scheme_9": "Standard scheme apply",
-            "icpo_strategy_8": "Standard strategy apply",
-            "icpo_tactic_8": "Standard tactic apply",
-            "icpo_approach_9": "Standard approach apply",
-            "icpo_method_9": "Standard method apply",
-            "icpo_technique_9": "Standard technique apply",
-            "icpo_procedure_9": "Standard procedure apply",
-            "icpo_process_9": "Standard process apply",
-            "icpo_system_9": "Standard system apply",
-            "icpo_framework_9": "Standard framework apply",
-            "icpo_structure_9": "Standard structure apply",
-            "icpo_organization_9": "Standard organization apply",
-            "icpo_arrangement_10": "Standard arrangement apply",
-            "icpo_setup_9": "Standard setup apply",
-            "icpo_configuration_9": "Standard configuration apply",
-            "icpo_layout_9": "Standard layout apply",
-            "icpo_design_9": "Standard design apply",
-            "icpo_plan_10": "Standard plan apply",
-            "icpo_scheme_10": "Standard scheme apply",
-            "icpo_strategy_9": "Standard strategy apply",
-            "icpo_tactic_9": "Standard tactic apply",
-            "icpo_approach_10": "Standard approach apply",
-            "icpo_method_10": "Standard method apply",
-            "icpo_technique_10": "Standard technique apply",
-            "icpo_procedure_10": "Standard procedure apply",
-            "icpo_process_10": "Standard process apply",
-            "icpo_system_10": "Standard system apply",
-            "icpo_framework_10": "Standard framework apply",
-            "icpo_structure_10": "Standard structure apply",
-            "icpo_organization_10": "Standard organization apply",
+        # Get vessel data (you can expand this to fetch from database)
+        vessel_data = {
+            # Basic vessel info
+            "vessel_name": "Petroleum Express 529",
+            "imo": vessel_imo,
+            "imo_number": vessel_imo,
+            "vessel_type": "Crude Oil Tanker",
+            "flag": "Malta",
+            "flag_state": "Malta",
+            "owner": "Sample Shipping Company",
+            "vessel_owner": "Sample Shipping Company",
+            "current_date": "2025-01-30",
+            "vessel_id": "1",
             
             # Technical specifications
             "gross_tonnage": "45,000",
@@ -1169,24 +631,40 @@ async def process_document(
             "Signatory_Name": "John Smith"
         }
         
-        # Find the template file
-        templates_dir = Path("templates")
-        template_file_path = templates_dir / f"{template_id}.docx"
-        
-        if not template_file_path.exists():
-            return JSONResponse({
-                "success": False,
-                "message": "Template file not found",
-                "error": "Template file does not exist on server"
-            }, status_code=404)
+        # Get template file content
+        template_file_content = None
+        if supabase and 'template_file' in template_info:
+            # Get template file from database
+            template_file_content = template_info['template_file']
+        else:
+            # Fallback to file system
+            templates_dir = Path("templates")
+            template_file_path = templates_dir / f"{template_id}.docx"
+            if template_file_path.exists():
+                with open(template_file_path, "rb") as f:
+                    template_file_content = f.read()
+            else:
+                return JSONResponse({
+                    "success": False,
+                    "message": "Template file not found",
+                    "error": "Template file does not exist in database or on server"
+                }, status_code=404)
         
         # Create output files
         filled_docx_file = outputs_dir / f"{document_id}_filled.docx"
         pdf_file = outputs_dir / f"{document_id}_filled.pdf"
         txt_file = outputs_dir / f"{document_id}_filled_fallback.txt"
         
-        # Fill the Word template with vessel data
-        success = fill_word_template(template_file_path, filled_docx_file, vessel_data)
+        # Save template content to temporary file for processing
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_template:
+            temp_template.write(template_file_content)
+            temp_template.flush()
+            
+            # Fill the Word template with vessel data
+            success = fill_word_template(temp_template.name, filled_docx_file, vessel_data)
+            
+            # Clean up temporary file
+            os.unlink(temp_template.name)
         
         if not success:
             return JSONResponse({
@@ -1195,54 +673,14 @@ async def process_document(
                 "error": "Could not process the Word template"
             }, status_code=500)
         
-        # Convert Word document to PDF using LibreOffice in Docker for reliable conversion
+        # Convert to PDF (try docx2pdf, fallback to text if it fails)
         pdf_success = False
         try:
-            print(f"Converting Word document to PDF using LibreOffice in Docker...")
-            
-            # Method 1: Try LibreOffice (works reliably in Docker)
-            try:
-                import subprocess
-                cmd = [
-                    'libreoffice',
-                    '--headless',
-                    '--convert-to', 'pdf',
-                    '--outdir', str(outputs_dir),
-                    str(filled_docx_file)
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-                
-                if result.returncode == 0:
-                    # LibreOffice creates PDF with same name as DOCX
-                    docx_name = filled_docx_file.stem
-                    libreoffice_pdf = outputs_dir / f"{docx_name}.pdf"
-                    
-                    if libreoffice_pdf.exists():
-                        libreoffice_pdf.rename(pdf_file)
-                        pdf_success = True
-                        print(f"✅ PDF conversion successful using LibreOffice: {pdf_file}")
-                    else:
-                        raise Exception("LibreOffice PDF file not found")
-                else:
-                    raise Exception(f"LibreOffice failed: {result.stderr}")
-                    
-            except Exception as libreoffice_error:
-                print(f"LibreOffice conversion failed: {libreoffice_error}")
-                
-                # Method 2: Try docx2pdf as fallback (may not work in Docker)
-                try:
-                    from docx2pdf import convert
-                    print("Trying docx2pdf as fallback...")
-                    convert(str(filled_docx_file), str(pdf_file))
-                    pdf_success = True
-                    print(f"✅ PDF conversion successful using docx2pdf: {pdf_file}")
-                    
-                except Exception as docx2pdf_error:
-                    print(f"docx2pdf conversion failed: {docx2pdf_error}")
-                    raise Exception("All PDF conversion methods failed")
-            
+            from docx2pdf import convert
+            convert(str(filled_docx_file), str(pdf_file))
+            pdf_success = True
         except Exception as e:
-            print(f"❌ All PDF conversion methods failed: {e}")
+            print(f"PDF conversion failed: {e}")
             # Create a fallback text file
             with open(txt_file, 'w', encoding='utf-8') as f:
                 f.write(f"Document processed successfully for vessel {vessel_imo}\n")
@@ -1250,7 +688,6 @@ async def process_document(
                 f.write(f"Document ID: {document_id}\n")
                 f.write(f"Note: PDF conversion failed, but Word document was created successfully.\n")
                 f.write(f"Word file: {filled_docx_file}\n")
-                f.write(f"Error: {str(e)}\n")
         
         # Return success response
         return JSONResponse({
@@ -1281,9 +718,6 @@ async def download_document(document_id: str, format: str = "pdf"):
     """Download processed document as actual file"""
     try:
         outputs_dir = Path("outputs")
-        outputs_dir.mkdir(exist_ok=True)
-        
-        print(f"🔍 Download request for document_id: {document_id}, format: {format}")
         
         if format.lower() == "pdf":
             file_path = outputs_dir / f"{document_id}_filled.pdf"
@@ -1294,262 +728,17 @@ async def download_document(document_id: str, format: str = "pdf"):
             media_type = "text/plain"
             filename = f"vessel_report_{document_id}.txt"
         
-        print(f"📁 Looking for file: {file_path}")
-        print(f"📁 File exists: {file_path.exists()}")
-        
         if not file_path.exists():
-            # Check if there's a text fallback file
-            fallback_txt_path = outputs_dir / f"{document_id}_filled_fallback.txt"
-            print(f"📁 Checking fallback: {fallback_txt_path}")
-            print(f"📁 Fallback exists: {fallback_txt_path.exists()}")
-            
-            if fallback_txt_path.exists():
-                file_path = fallback_txt_path
-                media_type = "text/plain"
-                filename = f"vessel_report_{document_id}.txt"
-            else:
-                # Create a fallback response with sample data
-                fallback_content = f"""Vessel Report - {document_id}
-Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-This is a sample vessel report generated by the template system.
-The actual document processing is being improved.
-
-Document ID: {document_id}
-Format: {format}
-
-For support, please contact the system administrator.
-"""
-                
-                # Create the fallback file
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(fallback_content)
-                print(f"📝 Created fallback file: {file_path}")
+            raise HTTPException(status_code=404, detail="Document not found")
         
-        print(f"📤 Returning file: {file_path}")
-        print(f"📤 Media type: {media_type}")
-        print(f"📤 Filename: {filename}")
-        
-        # Use Response with proper headers for better browser compatibility
-        from fastapi.responses import Response
-        
-        with open(file_path, 'rb') as f:
-            content = f.read()
-        
-        headers = {
-            'Content-Disposition': f'attachment; filename="{filename}"',
-            'Content-Type': media_type,
-            'Content-Length': str(len(content))
-        }
-        
-        return Response(
-            content=content,
+        return FileResponse(
+            path=str(file_path),
             media_type=media_type,
-            headers=headers
+            filename=filename
         )
         
     except Exception as e:
-        print(f"Download error: {str(e)}")  # Log the error
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
-
-@app.put("/templates/{template_id}")
-async def update_template(
-    template_id: str,
-    name: str = Form(None),
-    description: str = Form(None),
-    subscription_level: str = Form(None),
-    is_active: bool = Form(None)
-):
-    """Update template information"""
-    try:
-        # Find template in storage
-        template_found = False
-        for i, template in enumerate(templates_storage):
-            if template["id"] == template_id:
-                # Update fields if provided
-                if name is not None:
-                    template["name"] = name
-                if description is not None:
-                    template["description"] = description
-                if subscription_level is not None:
-                    template["subscription_level"] = subscription_level
-                if is_active is not None:
-                    template["is_active"] = is_active
-                
-                template_found = True
-                break
-        
-        if not template_found:
-            return JSONResponse({
-                "success": False,
-                "message": "Template not found"
-            }, status_code=404)
-        
-        # Save updated templates
-        save_templates()
-        
-        return JSONResponse({
-            "success": True,
-            "message": "Template updated successfully"
-        })
-        
-    except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Template update failed: {str(e)}",
-            "error": str(e)
-        }, status_code=500)
-
-@app.delete("/templates/{template_id}")
-async def delete_template(template_id: str):
-    """Delete a template"""
-    try:
-        # Find template in storage
-        template_found = False
-        for i, template in enumerate(templates_storage):
-            if template["id"] == template_id:
-                # Remove from storage
-                templates_storage.pop(i)
-                template_found = True
-                break
-        
-        if not template_found:
-            return JSONResponse({
-                "success": False,
-                "message": "Template not found"
-            }, status_code=404)
-        
-        # Delete template file
-        templates_dir = Path("templates")
-        template_file = templates_dir / f"{template_id}.docx"
-        if template_file.exists():
-            template_file.unlink()
-        
-        # Save updated templates
-        save_templates()
-        
-        return JSONResponse({
-            "success": True,
-            "message": "Template deleted successfully"
-        })
-        
-    except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Template deletion failed: {str(e)}",
-            "error": str(e)
-        }, status_code=500)
-
-@app.get("/user-permissions")
-async def get_user_permissions(user_id: str = None):
-    """Get user permissions for document templates"""
-    try:
-        # Import permission manager
-        from permission_integration import PermissionManager
-        
-        permission_manager = PermissionManager()
-        
-        # Get user_id from your authentication system
-        # For demo, use a default user_id
-        if not user_id:
-            user_id = "demo_user_123"
-        
-        permissions = permission_manager.get_user_permissions(user_id)
-        
-        return JSONResponse({
-            "success": True,
-            "permissions": permissions
-        })
-    except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Failed to get user permissions: {str(e)}",
-            "error": str(e)
-        }, status_code=500)
-
-@app.post("/upload-template")
-async def upload_template(
-    name: str = Form(...),
-    description: str = Form(...),
-    template_file: UploadFile = File(...),
-    subscription_level: str = Form("basic"),  # Add subscription level
-    user_id: str = Form(None)  # Add user_id parameter
-):
-    """Upload a new document template with permission check"""
-    try:
-        # Import permission manager
-        from permission_integration import PermissionManager
-        
-        permission_manager = PermissionManager()
-        
-        # Get user_id (in production, get from authentication)
-        if not user_id:
-            user_id = "demo_user_123"
-        
-        # Check upload permission
-        if not permission_manager.can_perform_action(user_id, "can_upload_templates"):
-            return JSONResponse({
-                "success": False,
-                "message": "Insufficient permissions to upload templates"
-            }, status_code=403)
-        
-        # Check template limit
-        current_count = len(templates_storage)
-        if not permission_manager.check_template_limit(user_id, current_count):
-            return JSONResponse({
-                "success": False,
-                "message": f"Template limit reached. Current plan allows {permission_manager.get_user_permissions(user_id)['max_templates']} templates."
-            }, status_code=403)
-        
-        # Generate a unique template ID
-        template_id = str(uuid.uuid4())
-        
-        # Create templates directory if it doesn't exist
-        templates_dir = Path("templates")
-        templates_dir.mkdir(exist_ok=True)
-        
-        # Save the uploaded file
-        file_extension = Path(template_file.filename).suffix
-        saved_filename = f"{template_id}{file_extension}"
-        file_path = templates_dir / saved_filename
-        
-        with open(file_path, "wb") as buffer:
-            content = await template_file.read()
-            buffer.write(content)
-        
-        # Extract actual placeholders from the uploaded Word document
-        actual_placeholders = extract_placeholders_from_docx(file_path)
-        
-        # Create template info
-        template_info = {
-            "id": template_id,
-            "name": name,
-            "description": description,
-            "file_name": template_file.filename,
-            "file_size": len(content),
-            "placeholders": actual_placeholders,
-            "subscription_level": subscription_level,  # Add subscription level
-            "is_active": True,
-            "created_at": "2025-01-30T00:00:00Z",
-            "created_by": user_id  # Track who created it
-        }
-        
-        # Add to storage
-        templates_storage.append(template_info)
-        save_templates()
-        
-        return JSONResponse({
-            "success": True,
-            "message": "Template uploaded successfully",
-            "template": template_info
-        })
-        
-    except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Template upload failed: {str(e)}",
-            "error": str(e)
-        }, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn

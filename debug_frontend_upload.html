@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template Upload Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 8px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+    </style>
+</head>
+<body>
+    <h1>Template Upload Debug Tool</h1>
+    
+    <form id="uploadForm">
+        <div class="form-group">
+            <label for="name">Template Name:</label>
+            <input type="text" id="name" name="name" value="Debug Test Template" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" rows="3">Testing template upload from frontend</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="file">Template File (.docx):</label>
+            <input type="file" id="file" name="file" accept=".docx" required>
+        </div>
+        
+        <button type="submit">Upload Template</button>
+    </form>
+    
+    <div id="result" class="result" style="display: none;"></div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('Please select a file', 'error');
+                return;
+            }
+            
+            showResult('Uploading...', '');
+            
+            try {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('description', description);
+                formData.append('template_file', file);
+                
+                console.log('Sending request to:', 'http://localhost:8000/upload-template');
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key, value);
+                }
+                
+                const response = await fetch('http://localhost:8000/upload-template', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                if (response.ok) {
+                    const result = JSON.parse(responseText);
+                    showResult(`Upload successful! Template ID: ${result.template?.id || 'N/A'}`, 'success');
+                } else {
+                    showResult(`Upload failed! Status: ${response.status}, Response: ${responseText}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                showResult(`Upload error: ${error.message}`, 'error');
+            }
+        });
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+        
+        // Test API connection on page load
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                if (response.ok) {
+                    console.log('API connection: OK');
+                } else {
+                    console.log('API connection: FAILED');
+                }
+            } catch (error) {
+                console.log('API connection error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
