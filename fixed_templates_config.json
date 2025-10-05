@@ -1,0 +1,88 @@
+{
+  "templates": {
+    "icpo_template": {
+      "name": "ICPO Template",
+      "description": "Irrevocable Corporate Purchase Order template",
+      "file": "icpo_template.docx",
+      "placeholders": [
+        "vessel_name",
+        "imo",
+        "vessel_type", 
+        "flag",
+        "owner",
+        "current_date"
+      ]
+    },
+    "commercial_invoice": {
+      "name": "Commercial Invoice",
+      "description": "Commercial invoice template for vessel transactions",
+      "file": "commercial_invoice.docx",
+      "placeholders": [
+        "vessel_name",
+        "imo",
+        "vessel_type",
+        "flag",
+        "owner",
+        "seller_company",
+        "seller_address",
+        "buyer_company",
+        "buyer_address",
+        "invoice_number",
+        "invoice_date",
+        "total_amount",
+        "currency",
+        "payment_terms",
+        "port_of_loading",
+        "port_of_discharge",
+        "commodity",
+        "quantity",
+        "unit_price",
+        "current_date"
+      ]
+    },
+    "performa_invoice": {
+      "name": "Performa Invoice",
+      "description": "Performa invoice template",
+      "file": "performa_invoice.docx",
+      "placeholders": [
+        "vessel_name",
+        "imo",
+        "vessel_type",
+        "flag",
+        "owner",
+        "seller_company",
+        "buyer_company",
+        "invoice_number",
+        "invoice_date",
+        "total_amount",
+        "currency",
+        "payment_terms",
+        "port_of_loading",
+        "port_of_discharge",
+        "commodity",
+        "quantity",
+        "unit_price",
+        "current_date"
+      ]
+    },
+    "proof_of_product": {
+      "name": "Proof of Product",
+      "description": "Proof of product template",
+      "file": "proof_of_product.docx",
+      "placeholders": [
+        "vessel_name",
+        "imo",
+        "vessel_type",
+        "flag",
+        "owner",
+        "commodity",
+        "specification",
+        "quality",
+        "inspection",
+        "origin",
+        "quantity",
+        "current_date"
+      ]
+    }
+  }
+}
